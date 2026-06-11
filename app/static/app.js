@@ -35,8 +35,7 @@ async function postForm(url, data) {
 }
 
 async function saveRow(id) {
-    const data = getRowData(id);
-    const result = await postForm(`/api/rows/${id}/update`, data);
+    const result = await postForm(`/api/rows/${id}/update`, getRowData(id));
 
     if (!result.ok) {
         alert(result.error || "No se pudo guardar la fila");
@@ -63,36 +62,71 @@ async function autoMetadata(id) {
     fillRow(id, result.item);
 }
 
-async function saveLibrary(id) {
-    await saveRow(id);
-
-    const response = await fetch(`/api/rows/${id}/save-library`, {
+async function sendJellyfin(id) {
+    const response = await fetch(`/api/jellyfin/send/${id}`, {
         method: "POST"
     });
 
     const result = await response.json();
 
     if (!result.ok) {
-        alert(result.error || "No se pudo guardar en biblioteca");
+        alert("No se pudo enviar a Jellyfin. Revisa ajustes.");
         return;
     }
 
     refreshHistory();
 }
 
-async function sendJellyfin(id) {
-    const response = await fetch(`/api/rows/${id}/send-jellyfin`, {
-        method: "POST"
+async function sendSelectedToJellyfin() {
+    const ids = Array.from(document.querySelectorAll(".row-check:checked"))
+        .map((checkbox) => Number(checkbox.value));
+
+    if (!ids.length) {
+        alert("Selecciona al menos un registro.");
+        return;
+    }
+
+    const response = await fetch("/api/jellyfin/send-selected", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ids })
     });
 
     const result = await response.json();
 
     if (!result.ok) {
-        alert("No se pudo refrescar Jellyfin. Revisa JELLYFIN_URL y JELLYFIN_API_KEY.");
+        alert("No se pudo enviar a Jellyfin. Revisa ajustes.");
         return;
     }
 
     refreshHistory();
+}
+
+async function deleteRow(id) {
+    const confirmed = confirm("¿Eliminar este registro del histórico? No se borrará el fichero descargado.");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const response = await fetch(`/api/rows/${id}`, {
+        method: "DELETE"
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+        alert(result.error || "No se pudo eliminar el registro");
+        return;
+    }
+
+    const row = getRow(id);
+
+    if (row) {
+        row.remove();
+    }
 }
 
 function fillRow(id, item) {
@@ -112,6 +146,7 @@ function fillRow(id, item) {
 
 function markRowSaved(id) {
     const row = getRow(id);
+
     row.classList.add("saved-flash");
 
     setTimeout(() => {
@@ -125,43 +160,20 @@ function toggleAllRows(source) {
     });
 }
 
-async function bulkSendJellyfin() {
-    const ids = Array.from(document.querySelectorAll(".row-check:checked"))
-        .map((checkbox) => Number(checkbox.value));
-
-    if (!ids.length) {
-        alert("Selecciona al menos un registro.");
-        return;
-    }
-
-    const response = await fetch("/api/bulk/send-jellyfin", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ ids })
-    });
-
-    const result = await response.json();
-
-    if (!result.ok) {
-        alert("No se pudo refrescar Jellyfin. Revisa la configuración.");
-        return;
-    }
-
-    refreshHistory();
-}
-
-async function refreshHistory() {
+function refreshHistory() {
     window.location.reload();
 }
 
 setInterval(() => {
+    if (window.location.pathname !== "/") {
+        return;
+    }
+
     fetch("/api/history")
         .then((response) => response.json())
         .then((items) => {
             const hasActive = items.some((item) => {
-                return ["queued", "getting_info", "downloading", "tagging"].includes(item.status);
+                return ["queued", "getting_info", "downloading"].includes(item.status);
             });
 
             if (hasActive) {

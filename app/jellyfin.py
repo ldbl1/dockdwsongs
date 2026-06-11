@@ -1,16 +1,18 @@
 import requests
 
-from app.config import settings
+
+def jellyfin_configured(jellyfin_url: str | None, api_key: str | None) -> bool:
+    return bool(jellyfin_url and api_key)
 
 
-def refresh_jellyfin_library() -> bool:
-    if not settings.JELLYFIN_URL or not settings.JELLYFIN_API_KEY:
+def refresh_jellyfin_library(jellyfin_url: str | None, api_key: str | None) -> bool:
+    if not jellyfin_configured(jellyfin_url, api_key):
         return False
 
-    url = settings.JELLYFIN_URL.rstrip("/") + "/Library/Refresh"
+    url = jellyfin_url.rstrip("/") + "/Library/Refresh"
 
     headers = {
-        "X-Emby-Token": settings.JELLYFIN_API_KEY,
+        "X-Emby-Token": api_key,
     }
 
     try:
@@ -21,5 +23,19 @@ def refresh_jellyfin_library() -> bool:
         return False
 
 
-def jellyfin_configured() -> bool:
-    return bool(settings.JELLYFIN_URL and settings.JELLYFIN_API_KEY)
+def test_jellyfin_connection(jellyfin_url: str | None, api_key: str | None) -> bool:
+    if not jellyfin_configured(jellyfin_url, api_key):
+        return False
+
+    url = jellyfin_url.rstrip("/") + "/System/Info"
+
+    headers = {
+        "X-Emby-Token": api_key,
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        return True
+    except Exception:
+        return False

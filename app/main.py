@@ -1,28 +1,25 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+import json
 
-from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.coverart import download_cover, search_cover_art, search_musicbrainz_metadata
+from app.coverart import search_musicbrainz_metadata
 from app.database import Base, SessionLocal, engine, get_db
 from app.downloader import download_audio, get_video_info
-from app.jellyfin import jellyfin_configured, refresh_jellyfin_library
-from app.library import organize_audio
-from app.metadata import apply_audio_metadata
+from app.jellyfin import refresh_jellyfin_library, test_jellyfin_connection
 from app.models import DownloadHistory
 
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
     title="dwSongs Docker Edition",
-    version="1.1.0",
+    version="1.3.0",
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -32,12 +29,157 @@ templates = Jinja2Templates(directory="app/templates")
 executor = ThreadPoolExecutor(max_workers=2)
 
 
+SUPPORTED_LANGUAGES = {
+    "es": "Español",
+    "en": "English",
+}
+
+
+TRANSLATIONS = {
+    "es": {
+        "app_subtitle": "Docker Edition · Audio Manager",
+        "home": "Inicio",
+        "settings": "Ajustes",
+        "jellyfin_configured": "Jellyfin configurado",
+        "jellyfin_not_configured": "Jellyfin sin configurar",
+        "new_download": "Nueva descarga",
+        "new_download_help": "Añade una o varias URLs de YouTube. Una por línea.",
+        "youtube_urls": "URLs de YouTube",
+        "audio_format": "Formato audio",
+        "add_to_queue": "Añadir a la cola",
+        "history_title": "Histórico y cola",
+        "history_help": "Edita los datos directamente en la tabla y guarda los cambios.",
+        "refresh": "Actualizar",
+        "send_selected": "Enviar seleccionados a Jellyfin",
+        "status": "Estado",
+        "title": "Título",
+        "artist": "Artista",
+        "album": "Álbum",
+        "year": "Año",
+        "track": "Pista",
+        "genre": "Género",
+        "format": "Formato",
+        "jellyfin": "Jellyfin",
+        "actions": "Acciones",
+        "save": "Guardar",
+        "search_data": "Buscar datos",
+        "send": "Enviar",
+        "delete": "Eliminar",
+        "sent": "Enviado",
+        "pending": "Pendiente",
+        "empty_history": "Todavía no hay descargas.",
+        "settings_title": "Ajustes",
+        "settings_help": "Configura Jellyfin e idioma.",
+        "jellyfin_url": "URL de Jellyfin",
+        "jellyfin_api_key": "API Key de Jellyfin",
+        "auto_refresh": "Refrescar Jellyfin automáticamente",
+        "language": "Idioma",
+        "save_settings": "Guardar ajustes",
+        "test_connection": "Probar conexión",
+        "back": "Volver",
+        "settings_saved": "Ajustes guardados.",
+        "test_ok": "Conexión correcta con Jellyfin.",
+        "test_fail": "No se pudo conectar con Jellyfin.",
+    },
+    "en": {
+        "app_subtitle": "Docker Edition · Audio Manager",
+        "home": "Home",
+        "settings": "Settings",
+        "jellyfin_configured": "Jellyfin configured",
+        "jellyfin_not_configured": "Jellyfin not configured",
+        "new_download": "New download",
+        "new_download_help": "Add one or more YouTube URLs. One per line.",
+        "youtube_urls": "YouTube URLs",
+        "audio_format": "Audio format",
+        "add_to_queue": "Add to queue",
+        "history_title": "History and queue",
+        "history_help": "Edit metadata directly in the table and save changes.",
+        "refresh": "Refresh",
+        "send_selected": "Send selected to Jellyfin",
+        "status": "Status",
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Album",
+        "year": "Year",
+        "track": "Track",
+        "genre": "Genre",
+        "format": "Format",
+        "jellyfin": "Jellyfin",
+        "actions": "Actions",
+        "save": "Save",
+        "search_data": "Search data",
+        "send": "Send",
+        "delete": "Delete",
+        "sent": "Sent",
+        "pending": "Pending",
+        "empty_history": "No downloads yet.",
+        "settings_title": "Settings",
+        "settings_help": "Configure Jellyfin and language.",
+        "jellyfin_url": "Jellyfin URL",
+        "jellyfin_api_key": "Jellyfin API Key",
+        "auto_refresh": "Refresh Jellyfin automatically",
+        "language": "Language",
+        "save_settings": "Save settings",
+        "test_connection": "Test connection",
+        "back": "Back",
+        "settings_saved": "Settings saved.",
+        "test_ok": "Jellyfin connection OK.",
+        "test_fail": "Could not connect to Jellyfin.",
+    },
+}
+
+
+def config_file() -> Path:
+    return settings.CONFIG_PATH / "settings.json"
+
+
+def load_config() -> dict:
+    data = {
+        "jellyfin_url": settings.JELLYFIN_URL or "",
+        "jellyfin_api_key": settings.JELLYFIN_API_KEY or "",
+        "auto_refresh": bool(settings.AUTO_REFRESH_JELLYFIN),
+        "language": "es",
+    }
+
+    path = config_file()
+
+    if path.exists():
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            data.update(saved)
+        except Exception:
+            pass
+
+    if data.get("language") not in SUPPORTED_LANGUAGES:
+        data["language"] = "es"
+
+    return data
+
+
+def save_config(data: dict) -> None:
+    settings.CONFIG_PATH.mkdir(parents=True, exist_ok=True)
+    config_file().write_text(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def get_texts() -> dict:
+    config = load_config()
+    return TRANSLATIONS.get(config["language"], TRANSLATIONS["es"])
+
+
+def is_jellyfin_configured() -> bool:
+    config = load_config()
+    return bool(config.get("jellyfin_url") and config.get("jellyfin_api_key"))
+
+
 def row_to_dict(item: DownloadHistory) -> dict:
     return {
         "id": item.id,
-        "url": item.url,
-        "status": item.status,
-        "error_message": item.error_message,
+        "url": item.url or "",
+        "status": item.status or "",
+        "error_message": item.error_message or "",
         "title": item.title or "",
         "artist": item.artist or "",
         "album_artist": item.album_artist or "",
@@ -52,22 +194,118 @@ def row_to_dict(item: DownloadHistory) -> dict:
         "downloaded_path": item.downloaded_path or "",
         "final_path": item.final_path or "",
         "cover_path": item.cover_path or "",
-        "jellyfin_sent": item.jellyfin_sent,
-        "duplicate": item.duplicate,
-        "created_at": item.created_at.isoformat() if item.created_at else "",
-        "updated_at": item.updated_at.isoformat() if item.updated_at else "",
+        "jellyfin_sent": bool(item.jellyfin_sent),
+        "duplicate": bool(item.duplicate),
     }
 
 
-def process_download(history_id: int) -> None:
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
+
+
+@app.on_event("shutdown")
+def shutdown():
+    executor.shutdown(wait=False)
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request, db: Session = Depends(get_db)):
+    items = (
+        db.query(DownloadHistory)
+        .order_by(DownloadHistory.id.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "items": items,
+            "config": load_config(),
+            "t": get_texts(),
+            "jellyfin_configured": is_jellyfin_configured(),
+        },
+    )
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(
+    request: Request,
+    saved: str = "",
+    tested: str = "",
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="settings.html",
+        context={
+            "config": load_config(),
+            "languages": SUPPORTED_LANGUAGES,
+            "t": get_texts(),
+            "jellyfin_configured": is_jellyfin_configured(),
+            "saved": saved == "1",
+            "tested": tested,
+        },
+    )
+
+
+@app.post("/settings")
+def save_settings(
+    jellyfin_url: str = Form(""),
+    jellyfin_api_key: str = Form(""),
+    auto_refresh: str | None = Form(None),
+    language: str = Form("es"),
+):
+    save_config(
+        {
+            "jellyfin_url": jellyfin_url.strip(),
+            "jellyfin_api_key": jellyfin_api_key.strip(),
+            "auto_refresh": auto_refresh == "on",
+            "language": language if language in SUPPORTED_LANGUAGES else "es",
+        }
+    )
+
+    return RedirectResponse("/settings?saved=1", status_code=303)
+
+
+@app.post("/settings/test")
+def test_settings(
+    jellyfin_url: str = Form(""),
+    jellyfin_api_key: str = Form(""),
+    auto_refresh: str | None = Form(None),
+    language: str = Form("es"),
+):
+    save_config(
+        {
+            "jellyfin_url": jellyfin_url.strip(),
+            "jellyfin_api_key": jellyfin_api_key.strip(),
+            "auto_refresh": auto_refresh == "on",
+            "language": language if language in SUPPORTED_LANGUAGES else "es",
+        }
+    )
+
+    ok = test_jellyfin_connection(
+        jellyfin_url.strip(),
+        jellyfin_api_key.strip(),
+    )
+
+    return RedirectResponse(
+        f"/settings?tested={'ok' if ok else 'fail'}",
+        status_code=303,
+    )
+
+
+def process_download(download_id: int):
     db = SessionLocal()
 
     try:
-        item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
+        item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
+
         if not item:
             return
 
         item.status = "getting_info"
+        item.error_message = None
         item.updated_at = datetime.utcnow()
         db.commit()
 
@@ -81,51 +319,39 @@ def process_download(history_id: int) -> None:
         item.updated_at = datetime.utcnow()
         db.commit()
 
-        downloaded = download_audio(item.url, item.audio_format or "mp3")
+        file_path = download_audio(
+            item.url,
+            item.audio_format or "mp3",
+        )
 
-        item.downloaded_path = str(downloaded)
+        item.downloaded_path = str(file_path)
         item.status = "downloaded"
         item.updated_at = datetime.utcnow()
         db.commit()
 
-    except Exception as exc:
-        item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
+    except Exception as e:
+        item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
+
         if item:
             item.status = "error"
-            item.error_message = str(exc)
+            item.error_message = str(e)
             item.updated_at = datetime.utcnow()
             db.commit()
+
     finally:
         db.close()
 
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db)):
-    items = db.query(DownloadHistory).order_by(DownloadHistory.created_at.desc()).all()
-
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
-            "items": items,
-            "jellyfin_configured": jellyfin_configured(),
-            "settings": settings,
-        },
-    )
-
-
 @app.post("/downloads")
-def create_downloads(
+def create_download(
     urls: str = Form(...),
     audio_format: str = Form("mp3"),
     db: Session = Depends(get_db),
 ):
-    created_ids = []
-
     clean_urls = [
-        line.strip()
-        for line in urls.replace(",", "\n").splitlines()
-        if line.strip()
+        url.strip()
+        for url in urls.replace(",", "\n").splitlines()
+        if url.strip()
     ]
 
     for url in clean_urls:
@@ -136,19 +362,19 @@ def create_downloads(
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
+
         db.add(item)
         db.commit()
         db.refresh(item)
 
-        created_ids.append(item.id)
         executor.submit(process_download, item.id)
 
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse("/", status_code=303)
 
 
-@app.post("/api/rows/{history_id}/update")
+@app.post("/api/rows/{download_id}/update")
 def update_row(
-    history_id: int,
+    download_id: int,
     title: str = Form(""),
     artist: str = Form(""),
     album_artist: str = Form(""),
@@ -156,19 +382,22 @@ def update_row(
     year: str = Form(""),
     genre: str = Form(""),
     track_number: str = Form(""),
-    disc_number: str = Form(""),
+    disc_number: str = Form("1"),
     comments: str = Form(""),
     lyrics: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
+    item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
 
     if not item:
-        return JSONResponse({"ok": False, "error": "Registro no encontrado"}, status_code=404)
+        return JSONResponse(
+            {"ok": False, "error": "Registro no encontrado"},
+            status_code=404,
+        )
 
     item.title = title
     item.artist = artist
-    item.album_artist = album_artist
+    item.album_artist = album_artist or artist
     item.album = album
     item.year = year
     item.genre = genre
@@ -179,16 +408,26 @@ def update_row(
     item.updated_at = datetime.utcnow()
 
     db.commit()
+    db.refresh(item)
 
-    return {"ok": True, "item": row_to_dict(item)}
+    return {
+        "ok": True,
+        "item": row_to_dict(item),
+    }
 
 
-@app.post("/api/rows/{history_id}/auto-metadata")
-def auto_metadata(history_id: int, db: Session = Depends(get_db)):
-    item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
+@app.post("/api/rows/{download_id}/auto-metadata")
+def auto_metadata(
+    download_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
 
     if not item:
-        return JSONResponse({"ok": False, "error": "Registro no encontrado"}, status_code=404)
+        return JSONResponse(
+            {"ok": False, "error": "Registro no encontrado"},
+            status_code=404,
+        )
 
     metadata = search_musicbrainz_metadata(
         artist=item.artist or "",
@@ -203,138 +442,118 @@ def auto_metadata(history_id: int, db: Session = Depends(get_db)):
         item.year = metadata.get("year") or item.year
         item.genre = metadata.get("genre") or item.genre
         item.track_number = metadata.get("track_number") or item.track_number
-        item.disc_number = metadata.get("disc_number") or item.disc_number
+        item.disc_number = metadata.get("disc_number") or item.disc_number or "1"
 
     item.updated_at = datetime.utcnow()
+
     db.commit()
+    db.refresh(item)
 
-    return {"ok": True, "item": row_to_dict(item)}
-
-
-@app.post("/api/rows/{history_id}/upload-cover")
-async def upload_cover(
-    history_id: int,
-    cover: UploadFile = File(...),
-    db: Session = Depends(get_db),
-):
-    item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
-
-    if not item:
-        return JSONResponse({"ok": False, "error": "Registro no encontrado"}, status_code=404)
-
-    cover_path = settings.CONFIG_PATH / "covers" / f"{history_id}.jpg"
-    cover_path.parent.mkdir(parents=True, exist_ok=True)
-    cover_path.write_bytes(await cover.read())
-
-    item.cover_path = str(cover_path)
-    item.updated_at = datetime.utcnow()
-    db.commit()
-
-    return {"ok": True, "item": row_to_dict(item)}
-
-
-@app.post("/api/rows/{history_id}/save-library")
-def save_to_library(history_id: int, db: Session = Depends(get_db)):
-    item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
-
-    if not item:
-        return JSONResponse({"ok": False, "error": "Registro no encontrado"}, status_code=404)
-
-    if not item.downloaded_path:
-        return JSONResponse({"ok": False, "error": "El fichero todavía no está descargado"}, status_code=400)
-
-    downloaded_path = Path(item.downloaded_path)
-
-    if not downloaded_path.exists():
-        return JSONResponse({"ok": False, "error": "No existe el fichero descargado"}, status_code=400)
-
-    item.status = "tagging"
-    item.updated_at = datetime.utcnow()
-    db.commit()
-
-    metadata = {
-        "title": item.title,
-        "artist": item.artist,
-        "album_artist": item.album_artist,
-        "album": item.album,
-        "year": item.year,
-        "genre": item.genre,
-        "track_number": item.track_number,
-        "disc_number": item.disc_number,
-        "comments": item.comments,
-        "lyrics": item.lyrics,
+    return {
+        "ok": True,
+        "item": row_to_dict(item),
     }
 
-    cover_path = Path(item.cover_path) if item.cover_path else None
 
-    if not cover_path:
-        cover_url = search_cover_art(item.artist or "", item.album or "")
-        if cover_url:
-            cover_path = download_cover(
-                cover_url,
-                settings.CONFIG_PATH / "covers" / f"{history_id}.jpg",
-            )
-
-    apply_audio_metadata(downloaded_path, metadata, cover_path)
-
-    final_path, duplicate = organize_audio(downloaded_path, metadata, cover_path)
-
-    item.final_path = str(final_path)
-    item.cover_path = str(cover_path) if cover_path else None
-    item.duplicate = duplicate
-    item.status = "ready_for_jellyfin"
-    item.updated_at = datetime.utcnow()
-    db.commit()
-
-    if settings.AUTO_REFRESH_JELLYFIN:
-        refresh_jellyfin_library()
-        item.jellyfin_sent = True
-        item.status = "sent_to_jellyfin"
-        item.updated_at = datetime.utcnow()
-        db.commit()
-
-    return {"ok": True, "item": row_to_dict(item)}
-
-
-@app.post("/api/rows/{history_id}/send-jellyfin")
-def send_to_jellyfin(history_id: int, db: Session = Depends(get_db)):
-    item = db.query(DownloadHistory).filter(DownloadHistory.id == history_id).first()
+@app.delete("/api/rows/{download_id}")
+def delete_row(
+    download_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
 
     if not item:
-        return JSONResponse({"ok": False, "error": "Registro no encontrado"}, status_code=404)
+        return JSONResponse(
+            {"ok": False, "error": "Registro no encontrado"},
+            status_code=404,
+        )
 
-    success = refresh_jellyfin_library()
+    db.delete(item)
+    db.commit()
 
-    if success:
+    return {
+        "ok": True,
+        "deleted": download_id,
+    }
+
+
+@app.post("/api/jellyfin/send/{download_id}")
+def send_jellyfin(
+    download_id: int,
+    db: Session = Depends(get_db),
+):
+    item = db.query(DownloadHistory).filter(DownloadHistory.id == download_id).first()
+
+    if not item:
+        return JSONResponse(
+            {"ok": False, "error": "Registro no encontrado"},
+            status_code=404,
+        )
+
+    config = load_config()
+
+    ok = refresh_jellyfin_library(
+        config.get("jellyfin_url", ""),
+        config.get("jellyfin_api_key", ""),
+    )
+
+    if ok:
         item.jellyfin_sent = True
         item.status = "sent_to_jellyfin"
         item.updated_at = datetime.utcnow()
         db.commit()
 
-    return {"ok": success, "item": row_to_dict(item)}
+    return {
+        "ok": ok,
+    }
 
 
-@app.post("/api/bulk/send-jellyfin")
-async def bulk_send_jellyfin(request: Request, db: Session = Depends(get_db)):
+@app.post("/api/jellyfin/send-selected")
+async def send_selected_jellyfin(
+    request: Request,
+    db: Session = Depends(get_db),
+):
     payload = await request.json()
     ids = payload.get("ids", [])
 
-    success = refresh_jellyfin_library()
+    if not ids:
+        return JSONResponse(
+            {"ok": False, "error": "No hay registros seleccionados"},
+            status_code=400,
+        )
 
-    if success:
+    config = load_config()
+
+    ok = refresh_jellyfin_library(
+        config.get("jellyfin_url", ""),
+        config.get("jellyfin_api_key", ""),
+    )
+
+    if ok:
         items = db.query(DownloadHistory).filter(DownloadHistory.id.in_(ids)).all()
+
         for item in items:
             item.jellyfin_sent = True
             item.status = "sent_to_jellyfin"
             item.updated_at = datetime.utcnow()
+
         db.commit()
 
-    return {"ok": success}
+    return {
+        "ok": ok,
+    }
 
 
 @app.get("/api/history")
-def api_history(db: Session = Depends(get_db)):
-    items = db.query(DownloadHistory).order_by(DownloadHistory.created_at.desc()).all()
+def api_history(
+    db: Session = Depends(get_db),
+):
+    items = (
+        db.query(DownloadHistory)
+        .order_by(DownloadHistory.id.desc())
+        .all()
+    )
+
     return [row_to_dict(item) for item in items]
 
 
@@ -343,9 +562,10 @@ def health():
     return {
         "status": "ok",
         "app": "dwSongs Docker Edition",
+        "version": "1.3.0",
     }
 
 
 @app.get("/favicon.ico")
 def favicon():
-    return JSONResponse({}, status_code=204)
+    return Response(status_code=204)

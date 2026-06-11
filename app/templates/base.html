@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>dwSongs Docker Edition</title>
+    <title>dwSongs</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link
@@ -12,21 +12,28 @@
 
     <link href="/static/css/app.css" rel="stylesheet">
 </head>
+
 <body>
 <div class="app-shell">
+
     <header class="topbar">
         <div>
             <h1>dwSongs</h1>
-            <span>Docker Edition · Audio Manager</span>
+            <span>{{ t.app_subtitle }}</span>
         </div>
+
+        <nav class="topbar-nav">
+            <a href="/">{{ t.home }}</a>
+            <a href="/settings">{{ t.settings }}</a>
+        </nav>
 
         <div class="topbar-status">
             {% if jellyfin_configured %}
                 <span class="status-dot ok"></span>
-                Jellyfin configurado
+                {{ t.jellyfin_configured }}
             {% else %}
                 <span class="status-dot warn"></span>
-                Jellyfin sin configurar
+                {{ t.jellyfin_not_configured }}
             {% endif %}
         </div>
     </header>
@@ -34,6 +41,7 @@
     <main class="main-panel">
         {% block content %}{% endblock %}
     </main>
+
 </div>
 
 <script src="/static/app.js"></script>

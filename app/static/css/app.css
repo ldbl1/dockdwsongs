@@ -6,7 +6,6 @@
     --text: #f1f1f1;
     --muted: #b5b5b5;
     --accent: #3d8bfd;
-    --accent-2: #00c2a8;
     --danger: #ff5c5c;
     --warning: #ffc857;
     --ok: #3ddc84;
@@ -20,7 +19,7 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: "Segoe UI", system-ui, sans-serif;
 }
 
 .app-shell {
@@ -28,12 +27,13 @@ body {
 }
 
 .topbar {
-    height: 72px;
+    min-height: 72px;
     background: linear-gradient(90deg, #111318, #252830);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 18px;
     padding: 0 22px;
 }
 
@@ -43,9 +43,28 @@ body {
     letter-spacing: 0.5px;
 }
 
-.topbar span {
+.topbar span,
+.window-title span {
     color: var(--muted);
     font-size: 13px;
+}
+
+.topbar-nav {
+    display: flex;
+    gap: 12px;
+}
+
+.topbar-nav a {
+    color: var(--text);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #202228;
+}
+
+.topbar-nav a:hover {
+    border-color: var(--accent);
 }
 
 .topbar-status {
@@ -98,17 +117,13 @@ body {
     font-size: 15px;
 }
 
-.window-title span {
-    color: var(--muted);
-    font-size: 12px;
-}
-
 .window-actions {
     display: flex;
     gap: 8px;
 }
 
-.download-form {
+.download-form,
+.settings-form {
     padding: 14px;
 }
 
@@ -138,6 +153,25 @@ body {
     box-shadow: none;
 }
 
+.form-check-label,
+.form-help {
+    color: var(--muted);
+}
+
+.form-help {
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.settings-select {
+    max-width: 260px;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 10px;
+}
+
 .app-textarea {
     resize: vertical;
 }
@@ -149,7 +183,7 @@ body {
 
 .app-table {
     width: 100%;
-    min-width: 1350px;
+    min-width: 1450px;
     border-collapse: collapse;
 }
 
@@ -230,12 +264,7 @@ body {
     color: #fff;
 }
 
-.state-tagging {
-    background: #d68c00;
-    color: #111;
-}
-
-.state-ready_for_jellyfin {
+.state-done {
     background: #00a884;
     color: #fff;
 }
@@ -268,7 +297,7 @@ body {
 }
 
 .actions-cell {
-    min-width: 360px;
+    min-width: 420px;
 }
 
 .btn-mini {
@@ -292,37 +321,16 @@ body {
     color: #fff;
 }
 
+.btn-mini.danger {
+    background: #5a2525;
+    border-color: #7b3333;
+    color: #fff;
+}
+
 .empty-row {
     padding: 20px !important;
     color: var(--muted);
     text-align: center;
-}
-
-.settings-grid {
-    padding: 14px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.settings-grid div {
-    background: #202228;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px;
-}
-
-.settings-grid span {
-    display: block;
-    color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 5px;
-}
-
-.settings-grid code {
-    color: var(--text);
-    white-space: normal;
-    word-break: break-all;
 }
 
 .saved-flash {
@@ -333,6 +341,7 @@ body {
     0% {
         background: rgba(61, 220, 132, 0.25);
     }
+
     100% {
         background: transparent;
     }
@@ -343,15 +352,10 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .settings-grid {
-        grid-template-columns: 1fr;
-    }
-
     .topbar {
         height: auto;
         padding: 14px;
         align-items: flex-start;
         flex-direction: column;
-        gap: 8px;
     }
 }

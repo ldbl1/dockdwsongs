@@ -5,16 +5,17 @@
 <section class="desktop-window">
     <div class="window-title">
         <div>
-            <strong>Nueva descarga</strong>
-            <span>Añade una o varias URLs de YouTube. Una por línea.</span>
+            <strong>{{ t.new_download }}</strong>
+            <span>{{ t.new_download_help }}</span>
         </div>
     </div>
 
-    <form action="/downloads" method="post" class="download-form">
+    <form class="download-form" action="/downloads" method="post">
         <div class="form-grid">
             <div>
-                <label class="form-label">URLs de YouTube</label>
+                <label class="form-label" for="urls">{{ t.youtube_urls }}</label>
                 <textarea
+                    id="urls"
                     name="urls"
                     class="form-control app-textarea"
                     rows="4"
@@ -24,15 +25,16 @@
             </div>
 
             <div>
-                <label class="form-label">Formato audio</label>
-                <select name="audio_format" class="form-select">
+                <label class="form-label" for="audio_format">{{ t.audio_format }}</label>
+
+                <select id="audio_format" name="audio_format" class="form-select">
                     <option value="mp3">MP3</option>
                     <option value="flac">FLAC</option>
                     <option value="m4a">M4A</option>
                 </select>
 
-                <button class="btn btn-primary w-100 mt-3">
-                    Añadir a la cola
+                <button type="submit" class="btn btn-primary w-100 mt-3">
+                    {{ t.add_to_queue }}
                 </button>
             </div>
         </div>
@@ -42,16 +44,17 @@
 <section class="desktop-window mt-3">
     <div class="window-title">
         <div>
-            <strong>Histórico y cola de descargas</strong>
-            <span>Los datos son editables directamente desde la tabla.</span>
+            <strong>{{ t.history_title }}</strong>
+            <span>{{ t.history_help }}</span>
         </div>
 
         <div class="window-actions">
-            <button class="btn btn-sm btn-outline-light" onclick="bulkSendJellyfin()">
-                Enviar seleccionados a Jellyfin
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="sendSelectedToJellyfin()">
+                {{ t.send_selected }}
             </button>
-            <button class="btn btn-sm btn-outline-light" onclick="refreshHistory()">
-                Actualizar
+
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="refreshHistory()">
+                {{ t.refresh }}
             </button>
         </div>
     </div>
@@ -61,22 +64,22 @@
             <thead>
             <tr>
                 <th class="check-col">
-                    <input type="checkbox" id="check-all" onclick="toggleAllRows(this)">
+                    <input type="checkbox" onclick="toggleAllRows(this)">
                 </th>
-                <th>Estado</th>
-                <th>Título</th>
-                <th>Artista</th>
-                <th>Álbum</th>
-                <th>Año</th>
-                <th>Pista</th>
-                <th>Género</th>
-                <th>Formato</th>
-                <th>Jellyfin</th>
-                <th>Acciones</th>
+                <th>{{ t.status }}</th>
+                <th>{{ t.title }}</th>
+                <th>{{ t.artist }}</th>
+                <th>{{ t.album }}</th>
+                <th>{{ t.year }}</th>
+                <th>{{ t.track }}</th>
+                <th>{{ t.genre }}</th>
+                <th>{{ t.format }}</th>
+                <th>{{ t.jellyfin }}</th>
+                <th>{{ t.actions }}</th>
             </tr>
             </thead>
 
-            <tbody id="history-body">
+            <tbody>
             {% for item in items %}
                 <tr data-id="{{ item.id }}">
                     <td>
@@ -87,8 +90,11 @@
                         <span class="badge-state state-{{ item.status }}">
                             {{ item.status }}
                         </span>
+
                         {% if item.error_message %}
-                            <div class="error-small">{{ item.error_message }}</div>
+                            <div class="error-small">
+                                {{ item.error_message }}
+                            </div>
                         {% endif %}
                     </td>
 
@@ -116,13 +122,15 @@
                         <input class="cell-input small" name="genre" value="{{ item.genre or '' }}">
                     </td>
 
-                    <td>{{ item.audio_format }}</td>
+                    <td>
+                        {{ item.audio_format or 'mp3' }}
+                    </td>
 
                     <td>
                         {% if item.jellyfin_sent %}
-                            <span class="jellyfin-ok">Enviado</span>
+                            <span class="jellyfin-ok">{{ t.sent }}</span>
                         {% else %}
-                            <span class="jellyfin-pending">Pendiente</span>
+                            <span class="jellyfin-pending">{{ t.pending }}</span>
                         {% endif %}
                     </td>
 
@@ -132,60 +140,32 @@
                         <input type="hidden" name="comments" value="{{ item.comments or '' }}">
                         <input type="hidden" name="lyrics" value="{{ item.lyrics or '' }}">
 
-                        <button class="btn-mini" onclick="saveRow({{ item.id }})">
-                            Guardar
+                        <button type="button" class="btn-mini" onclick="saveRow({{ item.id }})">
+                            {{ t.save }}
                         </button>
 
-                        <button class="btn-mini" onclick="autoMetadata({{ item.id }})">
-                            Buscar datos
+                        <button type="button" class="btn-mini" onclick="autoMetadata({{ item.id }})">
+                            {{ t.search_data }}
                         </button>
 
-                        <button class="btn-mini" onclick="saveLibrary({{ item.id }})">
-                            Guardar biblioteca
+                        <button type="button" class="btn-mini accent" onclick="sendJellyfin({{ item.id }})">
+                            {{ t.send }}
                         </button>
 
-                        <button class="btn-mini accent" onclick="sendJellyfin({{ item.id }})">
-                            Jellyfin
+                        <button type="button" class="btn-mini danger" onclick="deleteRow({{ item.id }})">
+                            {{ t.delete }}
                         </button>
                     </td>
                 </tr>
             {% else %}
                 <tr>
                     <td colspan="11" class="empty-row">
-                        Todavía no hay descargas. Añade una URL para empezar.
+                        {{ t.empty_history }}
                     </td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
-    </div>
-</section>
-
-<section class="desktop-window mt-3">
-    <div class="window-title">
-        <div>
-            <strong>Configuración activa</strong>
-            <span>La configuración se toma desde Docker Compose / variables de entorno.</span>
-        </div>
-    </div>
-
-    <div class="settings-grid">
-        <div>
-            <span>Directorio de música</span>
-            <code>{{ settings.DOWNLOAD_PATH }}/Music</code>
-        </div>
-        <div>
-            <span>Base de datos</span>
-            <code>{{ settings.DATABASE_PATH }}</code>
-        </div>
-        <div>
-            <span>Jellyfin URL</span>
-            <code>{{ settings.JELLYFIN_URL or 'No configurado' }}</code>
-        </div>
-        <div>
-            <span>Auto refresh</span>
-            <code>{{ settings.AUTO_REFRESH_JELLYFIN }}</code>
-        </div>
     </div>
 </section>
 
