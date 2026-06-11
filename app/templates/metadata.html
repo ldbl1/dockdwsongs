@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="h3 mb-4">Editor de metadatos</h1>
+
+<form method="post" action="/save" enctype="multipart/form-data">
+    <input type="hidden" name="history_id" value="{{ history_id }}">
+    <input type="hidden" name="file_path" value="{{ file_path }}">
+    <input type="hidden" name="media_type" value="{{ media_type }}">
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="mb-3">
+                <label class="form-label">Título</label>
+                <input class="form-control" name="title" value="{{ metadata.title }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Artista</label>
+                <input class="form-control" name="artist" value="{{ metadata.artist }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Artista del álbum</label>
+                <input class="form-control" name="album_artist" value="{{ metadata.album_artist }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Álbum</label>
+                <input class="form-control" name="album" value="{{ metadata.album }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Año</label>
+                <input class="form-control" name="year" value="{{ metadata.year }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Género</label>
+                <input class="form-control" name="genre" value="{{ metadata.genre }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Número de pista</label>
+                <input class="form-control" name="track_number" value="{{ metadata.track_number }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Número de disco</label>
+                <input class="form-control" name="disc_number" value="{{ metadata.disc_number }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Comentarios</label>
+                <textarea name="comments" class="form-control">{{ metadata.comments }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Letras</label>
+                <textarea name="lyrics" class="form-control" rows="5">{{ metadata.lyrics }}</textarea>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            {% if thumbnail %}
+            <div class="mb-3">
+                <label class="form-label">Miniatura de YouTube</label>
+                <img src="{{ thumbnail }}" class="img-fluid rounded border" alt="Miniatura">
+            </div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label">Subir carátula personalizada</label>
+                <input type="file" name="cover" class="form-control" accept="image/*">
+            </div>
+
+            <div class="alert alert-info">
+                Si no subes carátula, se intentará buscar automáticamente usando MusicBrainz y Cover Art Archive.
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-success">
+        Guardar en biblioteca
+    </button>
+</form>
+{% endblock %}

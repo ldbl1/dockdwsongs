@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="h3 mb-4">Ajustes</h1>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <p><strong>Ruta de descargas:</strong> {{ settings.DOWNLOAD_PATH }}</p>
+        <p><strong>Base de datos:</strong> {{ settings.DATABASE_PATH }}</p>
+        <p><strong>Config:</strong> {{ settings.CONFIG_PATH }}</p>
+        <p><strong>Jellyfin URL:</strong> {{ settings.JELLYFIN_URL }}</p>
+        <p><strong>Auto refresh Jellyfin:</strong> {{ settings.AUTO_REFRESH_JELLYFIN }}</p>
+
+        <form method="post" action="/api/jellyfin/refresh">
+            <button class="btn btn-outline-primary">
+                Refrescar Jellyfin ahora
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

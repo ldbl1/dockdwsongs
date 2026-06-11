@@ -1,0 +1,19 @@
+services:
+  dwsongs:
+    build: .
+    image: ldbl1/dwsongs:latest
+    container_name: dwsongs
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      DOWNLOAD_PATH: /downloads
+      DATABASE_PATH: /data/dwsongs.db
+      CONFIG_PATH: /config
+      JELLYFIN_URL: ${JELLYFIN_URL:-}
+      JELLYFIN_API_KEY: ${JELLYFIN_API_KEY:-}
+      AUTO_REFRESH_JELLYFIN: ${AUTO_REFRESH_JELLYFIN:-false}
+    volumes:
+      - ./downloads:/downloads
+      - ./data:/data
+      - ./config:/config
+    restart: unless-stopped

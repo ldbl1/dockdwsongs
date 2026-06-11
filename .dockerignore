@@ -1,0 +1,17 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+env
+dist
+build
+*.spec
+data
+downloads
+config
+.env
+.DS_Store
