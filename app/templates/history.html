@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="h3 mb-4">Historial</h1>
+
+<div class="card shadow-sm">
+    <div class="card-body table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Título</th>
+                <th>Artista</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Ruta</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.created_at }}</td>
+                <td>{{ item.title }}</td>
+                <td>{{ item.artist }}</td>
+                <td>{{ item.media_type }}</td>
+                <td>{{ item.status }}</td>
+                <td><code>{{ item.output_path }}</code></td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-muted">
+                    Todavía no hay descargas registradas.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

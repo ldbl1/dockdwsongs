@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="desktop-window">
+    <div class="window-title">
+        <div>
+            <strong>{{ t.new_download }}</strong>
+            <span>{{ t.new_download_help }}</span>
+        </div>
+    </div>
+
+    <div class="url-manager">
+        <div class="url-toolbar">
+            <button
+                type="button"
+                class="btn btn-success btn-sm"
+                onclick="addUrlRow()"
+                title="Añadir una nueva fila de URL"
+            >
+                +
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-outline-light btn-sm"
+                onclick="fetchNamesForInputRows()"
+                title="Obtener nombre original para las URLs seleccionadas"
+            >
+                {{ t.get_names }}
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                onclick="queueSelectedInputRows()"
+                title="Añadir a cola solo las URLs seleccionadas"
+            >
+                {{ t.add_to_queue }}
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                onclick="queueAllInputRows()"
+                title="Añadir a cola todas las URLs introducidas"
+            >
+                {{ t.download_all }}
+            </button>
+        </div>
+
+        <div class="input-table-wrapper">
+            <table class="app-table input-url-table">
+                <thead>
+                    <tr>
+                        <th class="check-col">
+                            <input
+                                type="checkbox"
+                                onclick="toggleInputRows(this)"
+                                title="Seleccionar o deseleccionar todas las URLs"
+                            >
+                        </th>
+                        <th>{{ t.youtube_urls }}</th>
+                        <th>{{ t.original_title }}</th>
+                        <th>{{ t.artist }}</th>
+                        <th>{{ t.actions }}</th>
+                    </tr>
+                </thead>
+
+                <tbody id="input-url-body">
+                    <tr class="input-url-row" data-fetching="0">
+                        <td>
+                            <input
+                                type="checkbox"
+                                class="input-row-check"
+                                checked
+                                title="Seleccionar esta URL"
+                            >
+                        </td>
+
+                        <td>
+                            <textarea
+                                class="form-control input-url"
+                                rows="1"
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                onpaste="handleUrlPaste(event, this)"
+                                onblur="autoFetchNameForInputRow(this)"
+                                oninput="markInputRowDirty(this)"
+                                title="Pega una URL de YouTube. Si pegas varias líneas, se crearán varias filas."
+                            ></textarea>
+                            <div class="input-row-status"></div>
+                        </td>
+
+                        <td>
+                            <input
+                                class="cell-input original-title-input"
+                                readonly
+                                title="Nombre original del vídeo recuperado desde YouTube"
+                            >
+                        </td>
+
+                        <td>
+                            <input
+                                class="cell-input uploader-input"
+                                readonly
+                                title="Canal o uploader original del vídeo"
+                            >
+                        </td>
+
+                        <td class="actions-cell input-actions-cell">
+                            <button
+                                type="button"
+                                class="btn-mini action-fetch-name"
+                                onclick="fetchNameForInputRow(this)"
+                                title="Obtener el nombre original del vídeo desde YouTube"
+                            >
+                                {{ t.get_names }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini accent action-queue"
+                                onclick="queueSingleInputRow(this)"
+                                title="Añadir esta URL a la cola"
+                            >
+                                {{ t.add_to_queue }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini action-view"
+                                onclick="openInputVideo(this)"
+                                title="Abrir el vídeo original de YouTube en otra pestaña"
+                            >
+                                {{ t.view_video }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini danger action-remove"
+                                onclick="removeInputRow(this)"
+                                title="Eliminar esta fila de la lista de URLs"
+                            >
+                                {{ t.delete }}
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="download-format-row">
+            <label class="form-label" for="audio_format">{{ t.audio_format }}</label>
+
+            <select
+                id="audio_format"
+                class="form-select settings-select"
+                title="Formato de audio que se descargará"
+            >
+                <option value="mp3">MP3</option>
+                <option value="flac">FLAC</option>
+                <option value="m4a">M4A</option>
+            </select>
+        </div>
+    </div>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>{{ t.history_title }}</strong>
+            <span>{{ t.history_help }}</span>
+        </div>
+
+        <div class="window-actions">
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="downloadSelectedRows()"
+                title="Descargar todos los registros seleccionados"
+            >
+                {{ t.download_selected }}
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="saveSelectedRows()"
+                title="Guardar los metadatos editados en todos los registros seleccionados"
+            >
+                {{ t.save }} seleccionados
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="autoMetadataSelectedRows()"
+                title="Buscar metadatos de todos los registros seleccionados"
+            >
+                {{ t.search_data }} seleccionados
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="sendSelectedToJellyfin()"
+                title="Enviar seleccionados ya descargados a Jellyfin"
+            >
+                {{ t.send_selected }}
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="deleteSelectedRows()"
+                title="Eliminar los registros seleccionados y limpiar incoming si existe"
+            >
+                {{ t.delete }} seleccionados
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="toggleHistoryTools()"
+                title="Mostrar u ocultar filtros y selector de columnas"
+            >
+                Columnas/Filtros
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="refreshHistory()"
+                title="Actualizar la cola y el histórico"
+            >
+                {{ t.refresh }}
+            </button>
+        </div>
+    </div>
+
+    <div id="history-tools" class="history-tools" style="display:none;">
+        <div class="history-tools-section">
+            <strong>Columnas visibles</strong>
+            <div id="history-column-toggles" class="column-toggle-grid"></div>
+        </div>
+
+        <div class="history-tools-section">
+            <strong>Filtros</strong>
+            <div class="history-filter-grid">
+                <input class="form-control history-filter" data-filter-column="status" placeholder="Filtrar estado">
+                <input class="form-control history-filter" data-filter-column="original" placeholder="Filtrar vídeo original">
+                <input class="form-control history-filter" data-filter-column="title" placeholder="Filtrar título">
+                <input class="form-control history-filter" data-filter-column="artist" placeholder="Filtrar artista">
+                <input class="form-control history-filter" data-filter-column="album" placeholder="Filtrar álbum">
+                <input class="form-control history-filter" data-filter-column="year" placeholder="Filtrar año">
+                <input class="form-control history-filter" data-filter-column="genre" placeholder="Filtrar género">
+                <input class="form-control history-filter" data-filter-column="jellyfin" placeholder="Filtrar Jellyfin">
+            </div>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light mt-2"
+                onclick="clearHistoryFilters()"
+            >
+                Limpiar filtros
+            </button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="app-table history-table" id="history-table">
+            <thead>
+                <tr>
+                    <th class="check-col" data-column="select">
+                        <input
+                            type="checkbox"
+                            onclick="toggleHistoryRows(this)"
+                            title="Seleccionar o deseleccionar todos los registros"
+                        >
+                    </th>
+                    <th data-column="status">{{ t.status }}</th>
+                    <th data-column="original">{{ t.original_title }}</th>
+                    <th data-column="title">{{ t.title }}</th>
+                    <th data-column="artist">{{ t.artist }}</th>
+                    <th data-column="album">{{ t.album }}</th>
+                    <th data-column="year">{{ t.year }}</th>
+                    <th data-column="track">{{ t.track }}</th>
+                    <th data-column="genre">{{ t.genre }}</th>
+                    <th data-column="format">{{ t.format }}</th>
+                    <th data-column="jellyfin">{{ t.jellyfin }}</th>
+                    <th data-column="actions">{{ t.actions }}</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in items %}
+                    {% set can_send = item.incoming_path or item.downloaded_path %}
+                    <tr data-id="{{ item.id }}">
+                        <td data-column="select">
+                            <input
+                                type="checkbox"
+                                class="row-check"
+                                value="{{ item.id }}"
+                                title="Seleccionar este registro"
+                            >
+                        </td>
+
+                        <td data-column="status" data-filter-value="{{ item.status }}">
+                            <span class="badge-state state-{{ item.status }}">
+                                {{ item.status }}
+                            </span>
+
+                            {% if item.error_message %}
+                                <div class="error-small">
+                                    {{ item.error_message }}
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td data-column="original" data-filter-value="{{ item.original_title or item.url }}">
+                            <div class="original-video-cell">
+                                <span title="{{ item.url }}">
+                                    {{ item.original_title or item.url }}
+                                </span>
+                            </div>
+                        </td>
+
+                        <td data-column="title" data-filter-value="{{ item.title or item.original_title or '' }}">
+                            <input
+                                class="cell-input"
+                                name="title"
+                                value="{{ item.title or item.original_title or '' }}"
+                                title="Título que se usará para metadatos y nombre final"
+                            >
+                        </td>
+
+                        <td data-column="artist" data-filter-value="{{ item.artist or item.uploader or '' }}">
+                            <input
+                                class="cell-input"
+                                name="artist"
+                                value="{{ item.artist or item.uploader or '' }}"
+                                title="Artista que se usará para la carpeta de Jellyfin"
+                            >
+                        </td>
+
+                        <td data-column="album" data-filter-value="{{ item.album or '' }}">
+                            <input
+                                class="cell-input"
+                                name="album"
+                                value="{{ item.album or '' }}"
+                                title="Álbum que se usará para la carpeta de Jellyfin"
+                            >
+                        </td>
+
+                        <td data-column="year" data-filter-value="{{ item.year or '' }}">
+                            <input
+                                class="cell-input small"
+                                name="year"
+                                value="{{ item.year or '' }}"
+                                title="Año del tema o álbum"
+                            >
+                        </td>
+
+                        <td data-column="track" data-filter-value="{{ item.track_number or '' }}">
+                            <input
+                                class="cell-input tiny"
+                                name="track_number"
+                                value="{{ item.track_number or '' }}"
+                                title="Número de pista. Si se deja vacío, se usará 01."
+                            >
+                        </td>
+
+                        <td data-column="genre" data-filter-value="{{ item.genre or '' }}">
+                            <input
+                                class="cell-input small"
+                                name="genre"
+                                value="{{ item.genre or '' }}"
+                                title="Género musical"
+                            >
+                        </td>
+
+                        <td data-column="format" data-filter-value="{{ item.audio_format or 'mp3' }}">
+                            {{ item.audio_format or 'mp3' }}
+                        </td>
+
+                        <td
+                            data-column="jellyfin"
+                            data-filter-value="{% if item.jellyfin_sent %}enviado{% elif item.library_saved %}library{% else %}pendiente{% endif %}"
+                        >
+                            {% if item.jellyfin_sent %}
+                                <span class="jellyfin-ok">{{ t.sent }}</span>
+                            {% elif item.library_saved %}
+                                <span class="jellyfin-pending">Library</span>
+                            {% else %}
+                                <span class="jellyfin-pending">{{ t.pending }}</span>
+                            {% endif %}
+                        </td>
+
+                        <td data-column="actions" class="actions-cell">
+                            <input type="hidden" name="album_artist" value="{{ item.album_artist or '' }}">
+                            <input type="hidden" name="disc_number" value="{{ item.disc_number or '1' }}">
+                            <input type="hidden" name="comments" value="{{ item.comments or '' }}">
+                            <input type="hidden" name="lyrics" value="{{ item.lyrics or '' }}">
+
+                            <button
+                                type="button"
+                                class="btn-mini"
+                                onclick="saveRow({{ item.id }})"
+                                title="Guardar los metadatos editados en esta fila"
+                            >
+                                {{ t.save }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini"
+                                onclick="autoMetadata({{ item.id }})"
+                                title="Buscar automáticamente álbum, año, pista y género"
+                            >
+                                {{ t.search_data }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini"
+                                onclick="downloadRow({{ item.id }})"
+                                title="Descargar este registro a incoming"
+                            >
+                                {{ t.download }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini"
+                                onclick="openVideoUrl('{{ item.url }}')"
+                                title="Abrir el vídeo original de YouTube en otra pestaña"
+                            >
+                                {{ t.view_video }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini accent"
+                                onclick="sendJellyfin({{ item.id }})"
+                                {% if not can_send %}disabled title="No se puede enviar a Jellyfin hasta que el fichero esté descargado"{% else %}title="Copiar el fichero a la biblioteca de Jellyfin y refrescar Jellyfin"{% endif %}
+                            >
+                                {{ t.send }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-mini danger"
+                                onclick="deleteRow({{ item.id }})"
+                                title="Eliminar el registro y limpiar incoming si existe"
+                            >
+                                {{ t.delete }}
+                            </button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="12" class="empty-row">
+                            {{ t.empty_history }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}

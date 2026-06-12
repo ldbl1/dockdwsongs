@@ -1,0 +1,41 @@
+services:
+  dwsongs:
+    build: .
+    container_name: dwsongs
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+
+    environment:
+      DOWNLOAD_PATH: /downloads
+      DATABASE_PATH: /data/dwsongs.db
+      CONFIG_PATH: /config
+
+      # Ruta interna donde dwSongs copiará la música organizada
+      # antes de pedir a Jellyfin que escanee.
+      LIBRARY_MUSIC_PATH: /library/music
+
+      # Valores iniciales para Jellyfin.
+      # Luego se podrán cambiar desde la pantalla Settings.
+      JELLYFIN_URL: ${JELLYFIN_URL:-http://jellyfin.home:8096}
+      JELLYFIN_API_KEY: ${JELLYFIN_API_KEY:-}
+      AUTO_REFRESH_JELLYFIN: ${AUTO_REFRESH_JELLYFIN:-false}
+
+    volumes:
+      # Código en vivo: evita rebuild cada vez que cambies app/*.py, templates o static.
+      - ./app:/app/app
+
+      # Descargas temporales / incoming.
+      - ./downloads:/downloads
+
+      # Base de datos SQLite persistente.
+      - ./data:/data
+
+      # Configuración persistente.
+      - ./config:/config
+
+      # Biblioteca de música que Jellyfin escaneará.
+      # En desarrollo queda en ./jellyfin_music.
+      # En producción cambia ./jellyfin_music por la ruta real del servidor.
+      - ./jellyfin_music:/library/music
+
+    restart: unless-stopped

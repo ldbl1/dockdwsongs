@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="desktop-window settings-window">
+    <div class="window-title">
+        <div>
+            <strong>Administración de usuarios</strong>
+            <span>Gestiona usuarios, permisos y contraseñas.</span>
+        </div>
+        <div class="window-actions"><a class="btn btn-sm btn-outline-light" href="/">Volver</a></div>
+    </div>
+
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+
+    <form class="settings-form" action="/admin/users/create" method="post">
+        <div class="settings-section">
+            <h2>Crear usuario</h2>
+            <div class="settings-row">
+                <label class="form-label" for="username">Usuario</label>
+                <input id="username" name="username" class="form-control" autocomplete="off" required placeholder="usuario">
+            </div>
+            <div class="settings-row">
+                <label class="form-label" for="password">Contraseña inicial</label>
+                <input id="password" name="password" type="password" class="form-control" autocomplete="new-password" required placeholder="Contraseña inicial">
+            </div>
+            <div class="form-check settings-check">
+                <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin">
+                <label class="form-check-label" for="is_admin">Usuario administrador</label>
+            </div>
+        </div>
+        <div class="settings-actions"><button type="submit" class="btn btn-primary">Crear usuario</button></div>
+    </form>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title"><div><strong>Usuarios existentes</strong><span>Lista de usuarios registrados en dwSongs.</span></div></div>
+    <div class="table-wrapper">
+        <table class="app-table users-table">
+            <thead><tr><th>ID</th><th>Usuario</th><th>Admin</th><th>Activo</th><th>Debe cambiar contraseña</th><th>Creado</th><th>Último login</th><th>Acciones</th></tr></thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>{% if user.is_admin %}<span class="jellyfin-ok">Sí</span>{% else %}<span class="jellyfin-pending">No</span>{% endif %}</td>
+                        <td>{% if user.is_active %}<span class="jellyfin-ok">Activo</span>{% else %}<span class="jellyfin-pending">Inactivo</span>{% endif %}</td>
+                        <td>{% if user.must_change_password %}<span class="jellyfin-pending">Sí</span>{% else %}<span class="jellyfin-ok">No</span>{% endif %}</td>
+                        <td>{{ user.created_at }}</td>
+                        <td>{{ user.last_login_at or "" }}</td>
+                        <td class="actions-cell">
+                            <form action="/admin/users/{{ user.id }}/toggle-active" method="post" style="display:inline-block;">
+                                <button type="submit" class="btn-mini">{% if user.is_active %}Desactivar{% else %}Activar{% endif %}</button>
+                            </form>
+                            <form action="/admin/users/{{ user.id }}/toggle-admin" method="post" style="display:inline-block;">
+                                <button type="submit" class="btn-mini">{% if user.is_admin %}Quitar admin{% else %}Hacer admin{% endif %}</button>
+                            </form>
+                            <form action="/admin/users/{{ user.id }}/reset-password" method="post" style="display:inline-block;">
+                                <input name="new_password" type="password" class="cell-input" placeholder="Nueva contraseña">
+                                <button type="submit" class="btn-mini accent">Reset password</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="empty-row">No hay usuarios creados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title"><div><strong>Reset desde consola</strong><span>Comandos útiles para recuperar acceso.</span></div></div>
+    <div class="settings-section">
+        <pre class="code-block"><code>docker compose exec dwsongs python -m app.manage reset-password admin NuevaPassword123</code></pre>
+        <pre class="code-block"><code>docker compose exec dwsongs python -m app.manage reset-password admin --generate</code></pre>
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="desktop-window settings-window">
+    <div class="window-title">
+        <div>
+            <strong>Editor de idiomas</strong>
+            <span>Edita los textos de la interfaz desde los ficheros JSON de app/i18n.</span>
+        </div>
+
+        <div class="window-actions">
+            <a class="btn btn-sm btn-outline-light" href="/settings" title="Volver a ajustes">
+                Volver a ajustes
+            </a>
+
+            <a class="btn btn-sm btn-outline-light" href="/" title="Volver al inicio">
+                Inicio
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% if message %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    <div class="settings-section">
+        <h2>Seleccionar idioma</h2>
+
+        <form class="language-select-form" action="/settings/languages" method="get">
+            <div class="settings-row">
+                <label class="form-label" for="language">
+                    Idioma a editar
+                </label>
+
+                <select
+                    id="language"
+                    name="language"
+                    class="form-select settings-select"
+                    onchange="this.form.submit()"
+                    title="Selecciona el idioma que quieres editar"
+                >
+                    {% for language in languages %}
+                        <option
+                            value="{{ language }}"
+                            {% if language == selected_language %}selected{% endif %}
+                        >
+                            {{ language }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <div class="form-help">
+                    Los cambios se guardan en <code>app/i18n/{{ selected_language }}.json</code>.
+                    El idioma base de referencia es <code>es</code>.
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>Crear nuevo idioma</strong>
+            <span>Crea un nuevo JSON copiando las claves desde un idioma existente.</span>
+        </div>
+    </div>
+
+    <form class="settings-form" action="/settings/languages/create" method="post">
+        <div class="settings-section language-create-grid">
+            <div class="settings-row">
+                <label class="form-label" for="new_language">
+                    Código del nuevo idioma
+                </label>
+
+                <input
+                    id="new_language"
+                    name="new_language"
+                    class="form-control"
+                    placeholder="fr"
+                    autocomplete="off"
+                    title="Código corto del idioma. Ejemplos: fr, de, it, pt, ca"
+                >
+
+                <div class="form-help">
+                    Usa códigos simples como <code>fr</code>, <code>de</code>, <code>it</code>, <code>pt</code> o <code>ca</code>.
+                </div>
+            </div>
+
+            <div class="settings-row">
+                <label class="form-label" for="base_language">
+                    Copiar desde
+                </label>
+
+                <select
+                    id="base_language"
+                    name="base_language"
+                    class="form-select settings-select"
+                    title="Idioma base desde el que copiar las claves"
+                >
+                    {% for language in languages %}
+                        <option
+                            value="{{ language }}"
+                            {% if language == selected_language %}selected{% endif %}
+                        >
+                            {{ language }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-actions">
+            <button type="submit" class="btn btn-primary">
+                Crear idioma
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>Añadir nueva clave</strong>
+            <span>Añade una clave nueva al idioma seleccionado.</span>
+        </div>
+    </div>
+
+    <form class="settings-form" action="/settings/languages/add-key" method="post">
+        <input type="hidden" name="language" value="{{ selected_language }}">
+
+        <div class="settings-section language-create-grid">
+            <div class="settings-row">
+                <label class="form-label" for="new_key">
+                    Nueva clave
+                </label>
+
+                <input
+                    id="new_key"
+                    name="new_key"
+                    class="form-control"
+                    placeholder="new_text_key"
+                    autocomplete="off"
+                    title="Nombre interno de la nueva clave de traducción"
+                >
+            </div>
+
+            <div class="settings-row">
+                <label class="form-label" for="new_value">
+                    Valor inicial
+                </label>
+
+                <input
+                    id="new_value"
+                    name="new_value"
+                    class="form-control"
+                    placeholder="Texto visible en la interfaz"
+                    autocomplete="off"
+                    title="Texto inicial para la nueva clave"
+                >
+            </div>
+        </div>
+
+        <div class="settings-actions">
+            <button type="submit" class="btn btn-primary">
+                Añadir clave
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="desktop-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>Editar textos: {{ selected_language }}</strong>
+            <span>Modifica los valores y pulsa guardar. Las claves vacías se mantienen vacías.</span>
+        </div>
+
+        <div class="window-actions">
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="filterLanguageRows()"
+                title="Aplicar filtro de claves/textos"
+            >
+                Filtrar
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="clearLanguageFilter()"
+                title="Limpiar filtro"
+            >
+                Limpiar filtro
+            </button>
+        </div>
+    </div>
+
+    <div class="settings-section language-filter-section">
+        <label class="form-label" for="language_filter">
+            Buscar clave o texto
+        </label>
+
+        <input
+            id="language_filter"
+            class="form-control"
+            placeholder="Buscar por clave, texto base o traducción..."
+            oninput="filterLanguageRows()"
+            title="Filtra por clave, texto base o traducción"
+        >
+
+        <div class="form-help">
+            Las filas marcadas como <span class="jellyfin-pending">Falta</span> existen en español pero todavía no tienen valor en el idioma seleccionado.
+        </div>
+    </div>
+
+    <form class="settings-form" action="/settings/languages/save" method="post">
+        <input type="hidden" name="language" value="{{ selected_language }}">
+
+        <div class="table-wrapper">
+            <table class="app-table language-editor-table" id="language-editor-table">
+                <thead>
+                    <tr>
+                        <th>Clave</th>
+                        <th>Valor base ES</th>
+                        <th>Valor {{ selected_language }}</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in rows %}
+                        <tr
+                            class="language-row"
+                            data-search="{{ row.key }} {{ row.base_value }} {{ row.value }}"
+                        >
+                            <td>
+                                <code>{{ row.key }}</code>
+                                <input type="hidden" name="keys" value="{{ row.key }}">
+                            </td>
+
+                            <td class="language-base-cell">
+                                {% if row.base_value %}
+                                    {{ row.base_value }}
+                                {% else %}
+                                    <span class="jellyfin-pending">Sin valor base</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <textarea
+                                    name="values"
+                                    class="form-control language-value-input"
+                                    rows="2"
+                                    title="Texto traducido para la clave {{ row.key }}"
+                                >{{ row.value }}</textarea>
+                            </td>
+
+                            <td>
+                                {% if row.missing %}
+                                    <span class="jellyfin-pending">Falta</span>
+                                {% else %}
+                                    <span class="jellyfin-ok">OK</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-row">
+                                No hay claves para editar.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="settings-actions">
+            <button type="submit" class="btn btn-primary">
+                Guardar idioma
+            </button>
+
+            <a class="btn btn-outline-light" href="/settings">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</section>
+
+<script>
+    function filterLanguageRows() {
+        const input = document.getElementById("language_filter");
+        const filter = input ? input.value.trim().toLowerCase() : "";
+
+        document.querySelectorAll(".language-row").forEach((row) => {
+            const value = (row.dataset.search || "").toLowerCase();
+            row.style.display = value.includes(filter) ? "" : "none";
+        });
+    }
+
+    function clearLanguageFilter() {
+        const input = document.getElementById("language_filter");
+
+        if (input) {
+            input.value = "";
+        }
+
+        filterLanguageRows();
+    }
+</script>
+
+{% endblock %}
