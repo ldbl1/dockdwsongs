@@ -640,9 +640,8 @@ async function sendSelectedToJellyfin() {
         `${sentCount} registro(s) enviados a Jellyfin.`,
         skippedIds.length ? `${skippedIds.length} omitido(s) porque aún no estaban descargados.` : "",
         failedCount ? `${failedCount} fallido(s). Revisa el histórico para ver errores.` : ""
-    ].filter(Boolean).join("
-");
-
+    ].filter(Boolean).join("");
+    
     alert(summary);
     refreshHistory();
 }
