@@ -580,14 +580,34 @@ async function sendJellyfin(id) {
 }
 
 async function sendSelectedToJellyfin() {
-    const ids = selectedHistoryIds();
+    const selectedCheckboxes = Array.from(document.querySelectorAll(".row-check:checked"));
 
-    if (!ids.length) {
+    if (!selectedCheckboxes.length) {
         alert("Selecciona al menos un registro.");
         return;
     }
 
-    for (const id of ids) {
+    const sendableIds = [];
+    const skippedIds = [];
+
+    selectedCheckboxes.forEach((checkbox) => {
+        const id = Number(checkbox.value);
+        const row = getRow(id);
+        const sendButton = row ? row.querySelector('button[onclick^="sendJellyfin"]') : null;
+
+        if (sendButton && sendButton.disabled) {
+            skippedIds.push(id);
+        } else {
+            sendableIds.push(id);
+        }
+    });
+
+    if (!sendableIds.length) {
+        alert("Ninguno de los registros seleccionados está descargado todavía. No se puede enviar a Jellyfin.");
+        return;
+    }
+
+    for (const id of sendableIds) {
         await saveRow(id);
     }
 
@@ -596,7 +616,7 @@ async function sendSelectedToJellyfin() {
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({ ids })
+        body: JSON.stringify({ ids: sendableIds })
     });
 
     const result = await response.json();
@@ -606,6 +626,24 @@ async function sendSelectedToJellyfin() {
         return;
     }
 
+    let sentCount = 0;
+    let failedCount = 0;
+
+    if (Array.isArray(result.results)) {
+        sentCount = result.results.filter((item) => item.ok).length;
+        failedCount = result.results.filter((item) => !item.ok).length;
+    } else {
+        sentCount = sendableIds.length;
+    }
+
+    const summary = [
+        `${sentCount} registro(s) enviados a Jellyfin.`,
+        skippedIds.length ? `${skippedIds.length} omitido(s) porque aún no estaban descargados.` : "",
+        failedCount ? `${failedCount} fallido(s). Revisa el histórico para ver errores.` : ""
+    ].filter(Boolean).join("
+");
+
+    alert(summary);
     refreshHistory();
 }
 
@@ -703,6 +741,10 @@ function refreshHistory() {
     window.location.reload();
 }
 
+/* --------------------------------------------------------------------------
+   Histórico usuario / vista principal
+-------------------------------------------------------------------------- */
+
 function toggleHistoryTools() {
     const element = document.getElementById("history-tools");
 
@@ -764,7 +806,7 @@ function applyColumnVisibility() {
 
     HISTORY_COLUMNS.forEach((column) => {
         const visible = saved[column] !== false;
-        document.querySelectorAll(`[data-column="${column}"]`).forEach((cell) => {
+        document.querySelectorAll(`#history-table [data-column="${column}"]`).forEach((cell) => {
             cell.style.display = visible ? "" : "none";
         });
     });
@@ -803,6 +845,140 @@ function clearHistoryFilters() {
     applyHistoryFilters();
 }
 
+/* --------------------------------------------------------------------------
+   Histórico admin /admin/downloads
+-------------------------------------------------------------------------- */
+
+function toggleAdminHistoryTools() {
+    const element = document.getElementById("admin-history-tools");
+
+    if (!element) {
+        return;
+    }
+
+    element.style.display = element.style.display === "none" ? "block" : "none";
+}
+
+const ADMIN_HISTORY_COLUMNS = [
+    "id",
+    "user",
+    "status",
+    "url",
+    "original",
+    "uploader",
+    "title",
+    "artist",
+    "album",
+    "year",
+    "track",
+    "genre",
+    "format",
+    "incoming",
+    "final",
+    "incoming_size",
+    "final_size",
+    "created",
+    "queued",
+    "info",
+    "download_started",
+    "downloaded",
+    "metadata",
+    "moved",
+    "jellyfin",
+    "deleted",
+    "actions"
+];
+
+function initAdminHistoryColumnToggles() {
+    const box = document.getElementById("admin-history-column-toggles");
+
+    if (!box) {
+        return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem("dwsongs_admin_visible_columns") || "{}");
+    box.innerHTML = "";
+
+    ADMIN_HISTORY_COLUMNS.forEach((column) => {
+        const visible = saved[column] !== false;
+        const label = document.createElement("label");
+        label.className = "column-toggle-item";
+        label.innerHTML = `<input type="checkbox" ${visible ? "checked" : ""} data-admin-column-toggle="${column}"> ${column}`;
+        box.appendChild(label);
+    });
+
+    box.querySelectorAll("input[data-admin-column-toggle]").forEach((input) => {
+        input.addEventListener("change", applyAdminHistoryColumnVisibility);
+    });
+
+    applyAdminHistoryColumnVisibility();
+}
+
+function applyAdminHistoryColumnVisibility() {
+    const saved = {};
+
+    document.querySelectorAll("input[data-admin-column-toggle]").forEach((input) => {
+        saved[input.dataset.adminColumnToggle] = input.checked;
+    });
+
+    localStorage.setItem("dwsongs_admin_visible_columns", JSON.stringify(saved));
+
+    ADMIN_HISTORY_COLUMNS.forEach((column) => {
+        const visible = saved[column] !== false;
+        document.querySelectorAll(`#admin-history-table [data-column="${column}"]`).forEach((cell) => {
+            cell.style.display = visible ? "" : "none";
+        });
+    });
+}
+
+function applyAdminHistoryFilters() {
+    const filters = {};
+
+    document.querySelectorAll(".admin-history-filter").forEach((input) => {
+        if (input.value.trim()) {
+            filters[input.dataset.filterColumn] = input.value.trim().toLowerCase();
+        }
+    });
+
+    document.querySelectorAll("#admin-history-table tbody tr[data-admin-download-id]").forEach((row) => {
+        let show = true;
+
+        Object.keys(filters).forEach((column) => {
+            const cell = row.querySelector(`[data-column="${column}"]`);
+            const value = ((cell && (cell.dataset.filterValue || cell.textContent)) || "").toLowerCase();
+
+            if (!value.includes(filters[column])) {
+                show = false;
+            }
+        });
+
+        row.style.display = show ? "" : "none";
+
+        const detailsRow = document.getElementById(`admin-actions-${row.dataset.adminDownloadId}`);
+        if (detailsRow && !show) {
+            detailsRow.style.display = "none";
+        }
+    });
+}
+
+function clearAdminHistoryFilters() {
+    document.querySelectorAll(".admin-history-filter").forEach((input) => {
+        input.value = "";
+    });
+
+    applyAdminHistoryFilters();
+}
+
+function toggleAdminActions(downloadId) {
+    const row = document.getElementById(`admin-actions-${downloadId}`);
+
+    if (!row) {
+        return;
+    }
+
+    row.style.display = row.style.display === "none" ? "table-row" : "none";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const firstUrlInput = document.querySelector(".input-url");
 
@@ -811,9 +987,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     initColumnToggles();
+    initAdminHistoryColumnToggles();
 
     document.querySelectorAll(".history-filter").forEach((input) => {
         input.addEventListener("input", applyHistoryFilters);
+    });
+
+    document.querySelectorAll(".admin-history-filter").forEach((input) => {
+        input.addEventListener("input", applyAdminHistoryFilters);
     });
 });
 

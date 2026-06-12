@@ -10,13 +10,22 @@
         </div>
 
         <div class="window-actions">
-            <a class="btn btn-sm btn-outline-light" href="/">
+            <a class="btn btn-sm btn-outline-light" href="/" title="Volver al inicio">
                 Volver
             </a>
 
-            <a class="btn btn-sm btn-outline-light" href="/admin/users">
+            <a class="btn btn-sm btn-outline-light" href="/admin/users" title="Abrir administración de usuarios">
                 Usuarios
             </a>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                onclick="toggleAdminHistoryTools()"
+                title="Mostrar u ocultar filtros y selector de columnas del histórico admin"
+            >
+                Columnas/Filtros
+            </button>
         </div>
     </div>
 
@@ -32,46 +41,85 @@
         </div>
     {% endif %}
 
+    <div id="admin-history-tools" class="history-tools" style="display:none;">
+        <div class="history-tools-section">
+            <strong>Columnas visibles</strong>
+            <div id="admin-history-column-toggles" class="column-toggle-grid"></div>
+        </div>
+
+        <div class="history-tools-section">
+            <strong>Filtros</strong>
+            <div class="history-filter-grid">
+                <input class="form-control admin-history-filter" data-filter-column="id" placeholder="Filtrar ID">
+                <input class="form-control admin-history-filter" data-filter-column="user" placeholder="Filtrar usuario">
+                <input class="form-control admin-history-filter" data-filter-column="status" placeholder="Filtrar estado">
+                <input class="form-control admin-history-filter" data-filter-column="url" placeholder="Filtrar URL">
+                <input class="form-control admin-history-filter" data-filter-column="original" placeholder="Filtrar vídeo original">
+                <input class="form-control admin-history-filter" data-filter-column="uploader" placeholder="Filtrar uploader">
+                <input class="form-control admin-history-filter" data-filter-column="title" placeholder="Filtrar título final">
+                <input class="form-control admin-history-filter" data-filter-column="artist" placeholder="Filtrar artista">
+                <input class="form-control admin-history-filter" data-filter-column="album" placeholder="Filtrar álbum">
+                <input class="form-control admin-history-filter" data-filter-column="year" placeholder="Filtrar año">
+                <input class="form-control admin-history-filter" data-filter-column="track" placeholder="Filtrar pista">
+                <input class="form-control admin-history-filter" data-filter-column="genre" placeholder="Filtrar género">
+                <input class="form-control admin-history-filter" data-filter-column="format" placeholder="Filtrar formato">
+                <input class="form-control admin-history-filter" data-filter-column="jellyfin" placeholder="Filtrar Jellyfin">
+                <input class="form-control admin-history-filter" data-filter-column="deleted" placeholder="Filtrar eliminado">
+            </div>
+
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-light mt-2"
+                onclick="clearAdminHistoryFilters()"
+                title="Limpiar todos los filtros del histórico admin"
+            >
+                Limpiar filtros
+            </button>
+        </div>
+    </div>
+
     <div class="table-wrapper">
-        <table class="app-table admin-downloads-table">
+        <table class="app-table admin-downloads-table" id="admin-history-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Estado</th>
-                    <th>URL</th>
-                    <th>Vídeo original</th>
-                    <th>Uploader</th>
-                    <th>Título final</th>
-                    <th>Artista</th>
-                    <th>Álbum</th>
-                    <th>Año</th>
-                    <th>Pista</th>
-                    <th>Género</th>
-                    <th>Formato</th>
-                    <th>Incoming</th>
-                    <th>Final Jellyfin</th>
-                    <th>Tamaño incoming</th>
-                    <th>Tamaño final</th>
-                    <th>Creado</th>
-                    <th>Cola</th>
-                    <th>Info obtenida</th>
-                    <th>Inicio descarga</th>
-                    <th>Descargado</th>
-                    <th>Metadata editada</th>
-                    <th>Movido biblioteca</th>
-                    <th>Jellyfin refresh</th>
-                    <th>Eliminado</th>
-                    <th>Acciones</th>
+                    <th data-column="id">ID</th>
+                    <th data-column="user">Usuario</th>
+                    <th data-column="status">Estado</th>
+                    <th data-column="url">URL</th>
+                    <th data-column="original">Vídeo original</th>
+                    <th data-column="uploader">Uploader</th>
+                    <th data-column="title">Título final</th>
+                    <th data-column="artist">Artista</th>
+                    <th data-column="album">Álbum</th>
+                    <th data-column="year">Año</th>
+                    <th data-column="track">Pista</th>
+                    <th data-column="genre">Género</th>
+                    <th data-column="format">Formato</th>
+                    <th data-column="incoming">Incoming</th>
+                    <th data-column="final">Final Jellyfin</th>
+                    <th data-column="incoming_size">Tamaño incoming</th>
+                    <th data-column="final_size">Tamaño final</th>
+                    <th data-column="created">Creado</th>
+                    <th data-column="queued">Cola</th>
+                    <th data-column="info">Info obtenida</th>
+                    <th data-column="download_started">Inicio descarga</th>
+                    <th data-column="downloaded">Descargado</th>
+                    <th data-column="metadata">Metadata editada</th>
+                    <th data-column="moved">Movido biblioteca</th>
+                    <th data-column="jellyfin">Jellyfin refresh</th>
+                    <th data-column="deleted">Eliminado</th>
+                    <th data-column="actions">Acciones</th>
                 </tr>
             </thead>
 
             <tbody>
                 {% for item in downloads %}
-                    <tr>
-                        <td>{{ item.id }}</td>
+                    <tr data-admin-download-id="{{ item.id }}">
+                        <td data-column="id" data-filter-value="{{ item.id }}">
+                            {{ item.id }}
+                        </td>
 
-                        <td>
+                        <td data-column="user" data-filter-value="{% if item.user %}{{ item.user.username }}{% else %}Sin usuario{% endif %}">
                             {% if item.user %}
                                 {{ item.user.username }}
                             {% else %}
@@ -79,7 +127,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td data-column="status" data-filter-value="{{ item.status }}">
                             <span class="badge-state state-{{ item.status }}">
                                 {{ item.status }}
                             </span>
@@ -91,9 +139,9 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td data-column="url" data-filter-value="{{ item.url }}">
                             <div class="admin-url-cell">
-                                <code>{{ item.url }}</code>
+                                <code title="{{ item.url }}">{{ item.url }}</code>
 
                                 <button
                                     type="button"
@@ -106,35 +154,61 @@
                             </div>
                         </td>
 
-                        <td>{{ item.original_title or "" }}</td>
-                        <td>{{ item.uploader or "" }}</td>
-                        <td>{{ item.title or "" }}</td>
-                        <td>{{ item.artist or "" }}</td>
-                        <td>{{ item.album or "" }}</td>
-                        <td>{{ item.year or "" }}</td>
-                        <td>{{ item.track_number or "" }}</td>
-                        <td>{{ item.genre or "" }}</td>
-                        <td>{{ item.audio_format or "" }}</td>
+                        <td data-column="original" data-filter-value="{{ item.original_title or '' }}">
+                            {{ item.original_title or "" }}
+                        </td>
 
-                        <td>
+                        <td data-column="uploader" data-filter-value="{{ item.uploader or '' }}">
+                            {{ item.uploader or "" }}
+                        </td>
+
+                        <td data-column="title" data-filter-value="{{ item.title or '' }}">
+                            {{ item.title or "" }}
+                        </td>
+
+                        <td data-column="artist" data-filter-value="{{ item.artist or '' }}">
+                            {{ item.artist or "" }}
+                        </td>
+
+                        <td data-column="album" data-filter-value="{{ item.album or '' }}">
+                            {{ item.album or "" }}
+                        </td>
+
+                        <td data-column="year" data-filter-value="{{ item.year or '' }}">
+                            {{ item.year or "" }}
+                        </td>
+
+                        <td data-column="track" data-filter-value="{{ item.track_number or '' }}">
+                            {{ item.track_number or "" }}
+                        </td>
+
+                        <td data-column="genre" data-filter-value="{{ item.genre or '' }}">
+                            {{ item.genre or "" }}
+                        </td>
+
+                        <td data-column="format" data-filter-value="{{ item.audio_format or '' }}">
+                            {{ item.audio_format or "" }}
+                        </td>
+
+                        <td data-column="incoming" data-filter-value="{{ item.incoming_path or item.downloaded_path or '' }}">
                             {% if item.incoming_path %}
-                                <code>{{ item.incoming_path }}</code>
+                                <code title="{{ item.incoming_path }}">{{ item.incoming_path }}</code>
                             {% elif item.downloaded_path %}
-                                <code>{{ item.downloaded_path }}</code>
+                                <code title="{{ item.downloaded_path }}">{{ item.downloaded_path }}</code>
                             {% else %}
                                 <span class="jellyfin-pending">Sin incoming</span>
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td data-column="final" data-filter-value="{{ item.final_path or '' }}">
                             {% if item.final_path %}
-                                <code>{{ item.final_path }}</code>
+                                <code title="{{ item.final_path }}">{{ item.final_path }}</code>
                             {% else %}
                                 <span class="jellyfin-pending">No enviado</span>
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td data-column="incoming_size" data-filter-value="{{ item.incoming_size_bytes or '' }}">
                             {% if item.incoming_size_bytes %}
                                 {{ item.incoming_size_bytes }} bytes
                             {% else %}
@@ -142,7 +216,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td data-column="final_size" data-filter-value="{{ item.final_size_bytes or '' }}">
                             {% if item.final_size_bytes %}
                                 {{ item.final_size_bytes }} bytes
                             {% else %}
@@ -150,16 +224,45 @@
                             {% endif %}
                         </td>
 
-                        <td>{{ item.created_at or "" }}</td>
-                        <td>{{ item.queued_at or "" }}</td>
-                        <td>{{ item.info_fetched_at or "" }}</td>
-                        <td>{{ item.download_started_at or "" }}</td>
-                        <td>{{ item.downloaded_at or "" }}</td>
-                        <td>{{ item.metadata_updated_at or "" }}</td>
-                        <td>{{ item.moved_to_library_at or "" }}</td>
-                        <td>{{ item.jellyfin_refreshed_at or "" }}</td>
+                        <td data-column="created" data-filter-value="{{ item.created_at or '' }}">
+                            {{ item.created_at or "" }}
+                        </td>
 
-                        <td>
+                        <td data-column="queued" data-filter-value="{{ item.queued_at or '' }}">
+                            {{ item.queued_at or "" }}
+                        </td>
+
+                        <td data-column="info" data-filter-value="{{ item.info_fetched_at or '' }}">
+                            {{ item.info_fetched_at or "" }}
+                        </td>
+
+                        <td data-column="download_started" data-filter-value="{{ item.download_started_at or '' }}">
+                            {{ item.download_started_at or "" }}
+                        </td>
+
+                        <td data-column="downloaded" data-filter-value="{{ item.downloaded_at or '' }}">
+                            {{ item.downloaded_at or "" }}
+                        </td>
+
+                        <td data-column="metadata" data-filter-value="{{ item.metadata_updated_at or '' }}">
+                            {{ item.metadata_updated_at or "" }}
+                        </td>
+
+                        <td data-column="moved" data-filter-value="{{ item.moved_to_library_at or '' }}">
+                            {{ item.moved_to_library_at or "" }}
+                        </td>
+
+                        <td data-column="jellyfin" data-filter-value="{{ item.jellyfin_refreshed_at or '' }} {% if item.jellyfin_sent %}enviado{% elif item.library_saved %}library{% else %}pendiente{% endif %}">
+                            {% if item.jellyfin_refreshed_at %}
+                                {{ item.jellyfin_refreshed_at }}
+                            {% elif item.library_saved %}
+                                <span class="jellyfin-pending">Library</span>
+                            {% else %}
+                                <span class="jellyfin-pending">Pendiente</span>
+                            {% endif %}
+                        </td>
+
+                        <td data-column="deleted" data-filter-value="{% if item.is_deleted %}sí si eliminado{% else %}no activo{% endif %}">
                             {% if item.is_deleted %}
                                 <span class="jellyfin-pending">Sí</span>
                                 <br>
@@ -169,7 +272,7 @@
                             {% endif %}
                         </td>
 
-                        <td class="actions-cell">
+                        <td data-column="actions" class="actions-cell">
                             <button
                                 type="button"
                                 class="btn-mini"
@@ -246,21 +349,5 @@
         </table>
     </div>
 </section>
-
-<script>
-    function toggleAdminActions(downloadId) {
-        const row = document.getElementById(`admin-actions-${downloadId}`);
-
-        if (!row) {
-            return;
-        }
-
-        if (row.style.display === "none") {
-            row.style.display = "table-row";
-        } else {
-            row.style.display = "none";
-        }
-    }
-</script>
 
 {% endblock %}

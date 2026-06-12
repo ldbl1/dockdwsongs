@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# dwSongs runtime data
+config/
+data/
+downloads/
+jellyfin_music/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated media / temp files
+*.mp3
+*.flac
+*.m4a
+*.wav
+*.ogg
+*.opus
+*.webm
+*.mp4
+*.mkv
+*.part
+*.ytdl
+*.temp
+*.tmp
+
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker local overrides
+compose.override.yml
+docker-compose.override.yml
+
+# Archives generated locally
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
