@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="desktop-window auth-window">
+    <div class="window-title">
+        <div>
+            <strong>Login</strong>
+            <span>Accede a dwSongs con tu usuario.</span>
+        </div>
+    </div>
+
+    <form class="settings-form" action="/login" method="post">
+        {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+        {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+
+        <div class="auth-section">
+            <div class="settings-row">
+                <label class="form-label" for="username">Usuario</label>
+                <input id="username" name="username" class="form-control" autocomplete="username" required autofocus placeholder="admin">
+            </div>
+
+            <div class="settings-row">
+                <label class="form-label" for="password">Contraseña</label>
+                <input id="password" name="password" type="password" class="form-control" autocomplete="current-password" required placeholder="Contraseña">
+            </div>
+
+            <div class="settings-actions auth-actions">
+                <button type="submit" class="btn btn-primary">Entrar</button>
+            </div>
+        </div>
+    </form>
+</section>
+
+<section class="desktop-window auth-help-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>Ayuda de administración</strong>
+            <span>Opciones de recuperación de acceso.</span>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h2>Primer arranque</h2>
+        <p class="form-help">Si todavía no existe ningún usuario, dwSongs mostrará la pantalla inicial para crear el usuario administrador.</p>
+    </div>
+
+    <div class="settings-section">
+        <h2>Restablecer contraseña desde consola</h2>
+        <pre class="code-block"><code>docker compose exec dwsongs python -m app.manage reset-password admin NuevaPassword123</code></pre>
+        <pre class="code-block"><code>docker compose exec dwsongs python -m app.manage reset-password admin --generate</code></pre>
+    </div>
+</section>
+
+{% endblock %}

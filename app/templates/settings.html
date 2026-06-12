@@ -2,7 +2,7 @@
 
 {% block content %}
 
-<section class="desktop-window">
+<section class="desktop-window settings-window">
     <div class="window-title">
         <div>
             <strong>{{ t.settings_title }}</strong>
@@ -10,82 +10,133 @@
         </div>
 
         <div class="window-actions">
-            <a class="btn btn-sm btn-outline-light" href="/">
+            <a href="/" class="btn btn-sm btn-outline-light">
                 {{ t.back }}
             </a>
         </div>
     </div>
 
-    <form class="settings-form" action="/settings" method="post">
+    {% if saved %}
+        <div class="alert alert-success">
+            {{ t.settings_saved }}
+        </div>
+    {% endif %}
 
-        {% if saved %}
-            <div class="alert alert-success">
-                {{ t.settings_saved }}
+    {% if tested == "ok" %}
+        <div class="alert alert-success">
+            {{ t.test_ok }}
+        </div>
+    {% endif %}
+
+    {% if tested == "fail" %}
+        <div class="alert alert-danger">
+            {{ t.test_fail }}
+        </div>
+    {% endif %}
+
+    <form id="settings-form" class="settings-form" action="/settings" method="post">
+        <div class="settings-section">
+            <h2>Jellyfin</h2>
+
+            <div class="settings-row">
+                <label class="form-label" for="jellyfin_url">
+                    {{ t.jellyfin_url }}
+                </label>
+
+                <input
+                    id="jellyfin_url"
+                    name="jellyfin_url"
+                    class="form-control"
+                    value="{{ config.jellyfin_url }}"
+                    placeholder="http://jellyfin.home:8096"
+                >
+
+                <div class="form-help">
+                    {{ t.help_jellyfin_url_same_server }}
+                    <code>http://jellyfin.home:8096</code>.
+                    {{ t.help_jellyfin_url_same_compose }}
+                    <code>http://jellyfin:8096</code>.
+                    {{ t.help_jellyfin_url_host }}
+                    <code>http://host.docker.internal:8096</code>.
+                </div>
             </div>
-        {% endif %}
 
-        {% if tested == 'ok' %}
-            <div class="alert alert-success">
-                {{ t.test_ok }}
+            <div class="settings-row">
+                <label class="form-label" for="jellyfin_api_key">
+                    {{ t.jellyfin_api_key }}
+                </label>
+
+                <input
+                    id="jellyfin_api_key"
+                    name="jellyfin_api_key"
+                    class="form-control"
+                    value="{{ config.jellyfin_api_key }}"
+                    autocomplete="off"
+                    placeholder="API Key"
+                >
+
+                <div class="form-help">
+                    {{ t.help_api_key }}
+                </div>
             </div>
-        {% endif %}
 
-        {% if tested == 'fail' %}
-            <div class="alert alert-danger">
-                {{ t.test_fail }}
+            <div class="settings-row">
+                <label class="form-label" for="library_music_path">
+                    {{ t.library_music_path }}
+                </label>
+
+                <input
+                    id="library_music_path"
+                    name="library_music_path"
+                    class="form-control"
+                    value="{{ config.library_music_path }}"
+                    placeholder="/library/music"
+                >
+
+                <div class="form-help">
+                    {{ t.help_library_path }}
+                    {{ t.help_library_path_case }}:
+                    <code>/library/music</code>.
+                    {{ t.help_library_path_mount }}:
+                    <code>/media/musica</code>.
+                </div>
             </div>
-        {% endif %}
 
-        <div class="mb-3">
-            <label class="form-label" for="jellyfin_url">{{ t.jellyfin_url }}</label>
-            <input
-                id="jellyfin_url"
-                name="jellyfin_url"
-                class="form-control"
-                value="{{ config.jellyfin_url }}"
-                placeholder="http://host.docker.internal:8096"
-            >
-            <div class="form-help">
-                Si Jellyfin está en Windows/host usa:
-                <code>http://host.docker.internal:8096</code>.
-                Si está en otro contenedor del mismo compose usa:
-                <code>http://jellyfin:8096</code>.
+            <div class="form-check settings-check">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="auto_refresh"
+                    name="auto_refresh"
+                    {% if config.auto_refresh %}checked{% endif %}
+                >
+
+                <label class="form-check-label" for="auto_refresh">
+                    {{ t.auto_refresh }}
+                </label>
             </div>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label" for="jellyfin_api_key">{{ t.jellyfin_api_key }}</label>
-            <input
-                id="jellyfin_api_key"
-                name="jellyfin_api_key"
-                class="form-control"
-                value="{{ config.jellyfin_api_key }}"
-                autocomplete="off"
-            >
-        </div>
+        <div class="settings-section">
+            <h2>{{ t.language }}</h2>
 
-        <div class="form-check mb-3">
-            <input
-                class="form-check-input"
-                type="checkbox"
-                id="auto_refresh"
-                name="auto_refresh"
-                {% if config.auto_refresh %}checked{% endif %}
-            >
-            <label class="form-check-label" for="auto_refresh">
-                {{ t.auto_refresh }}
-            </label>
-        </div>
+            <div class="settings-row">
+                <label class="form-label" for="language">
+                    {{ t.language }}
+                </label>
 
-        <div class="mb-3">
-            <label class="form-label" for="language">{{ t.language }}</label>
-            <select id="language" name="language" class="form-select settings-select">
-                {% for code, name in languages.items() %}
-                    <option value="{{ code }}" {% if config.language == code %}selected{% endif %}>
-                        {{ name }}
-                    </option>
-                {% endfor %}
-            </select>
+                <select id="language" name="language" class="form-select settings-select">
+                    {% for code, name in languages.items() %}
+                        <option value="{{ code }}" {% if config.language == code %}selected{% endif %}>
+                            {{ name }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <div class="form-help">
+                    {{ t.help_add_languages }}
+                </div>
+            </div>
         </div>
 
         <div class="settings-actions">
@@ -93,12 +144,33 @@
                 {{ t.save_settings }}
             </button>
 
-            <button type="submit" formaction="/settings/test" class="btn btn-outline-light">
+            <button
+                type="button"
+                class="btn btn-outline-light"
+                onclick="testJellyfinConnectionFromSettings()"
+                title="{{ t.test_connection }}"
+            >
                 {{ t.test_connection }}
             </button>
         </div>
-
     </form>
 </section>
+
+<form id="test-jellyfin-form" action="/settings/test" method="post" style="display: none;">
+    <input type="hidden" id="test_jellyfin_url" name="jellyfin_url" value="">
+    <input type="hidden" id="test_jellyfin_api_key" name="jellyfin_api_key" value="">
+</form>
+
+<script>
+    function testJellyfinConnectionFromSettings() {
+        const jellyfinUrl = document.getElementById("jellyfin_url").value;
+        const jellyfinApiKey = document.getElementById("jellyfin_api_key").value;
+
+        document.getElementById("test_jellyfin_url").value = jellyfinUrl;
+        document.getElementById("test_jellyfin_api_key").value = jellyfinApiKey;
+
+        document.getElementById("test-jellyfin-form").submit();
+    }
+</script>
 
 {% endblock %}

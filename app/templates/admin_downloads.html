@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="desktop-window">
+    <div class="window-title">
+        <div>
+            <strong>Administración de descargas</strong>
+            <span>Histórico global de descargas, usuarios, metadatos y acciones.</span>
+        </div>
+
+        <div class="window-actions">
+            <a class="btn btn-sm btn-outline-light" href="/">
+                Volver
+            </a>
+
+            <a class="btn btn-sm btn-outline-light" href="/admin/users">
+                Usuarios
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% if message %}
+        <div class="alert alert-success">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    <div class="table-wrapper">
+        <table class="app-table admin-downloads-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuario</th>
+                    <th>Estado</th>
+                    <th>URL</th>
+                    <th>Vídeo original</th>
+                    <th>Uploader</th>
+                    <th>Título final</th>
+                    <th>Artista</th>
+                    <th>Álbum</th>
+                    <th>Año</th>
+                    <th>Pista</th>
+                    <th>Género</th>
+                    <th>Formato</th>
+                    <th>Incoming</th>
+                    <th>Final Jellyfin</th>
+                    <th>Tamaño incoming</th>
+                    <th>Tamaño final</th>
+                    <th>Creado</th>
+                    <th>Cola</th>
+                    <th>Info obtenida</th>
+                    <th>Inicio descarga</th>
+                    <th>Descargado</th>
+                    <th>Metadata editada</th>
+                    <th>Movido biblioteca</th>
+                    <th>Jellyfin refresh</th>
+                    <th>Eliminado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in downloads %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+
+                        <td>
+                            {% if item.user %}
+                                {{ item.user.username }}
+                            {% else %}
+                                <span class="jellyfin-pending">Sin usuario</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <span class="badge-state state-{{ item.status }}">
+                                {{ item.status }}
+                            </span>
+
+                            {% if item.error_message %}
+                                <div class="error-small">
+                                    {{ item.error_message }}
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="admin-url-cell">
+                                <code>{{ item.url }}</code>
+
+                                <button
+                                    type="button"
+                                    class="btn-mini"
+                                    onclick="openVideoUrl('{{ item.url }}')"
+                                    title="Abrir URL original en otra pestaña"
+                                >
+                                    Ver vídeo
+                                </button>
+                            </div>
+                        </td>
+
+                        <td>{{ item.original_title or "" }}</td>
+                        <td>{{ item.uploader or "" }}</td>
+                        <td>{{ item.title or "" }}</td>
+                        <td>{{ item.artist or "" }}</td>
+                        <td>{{ item.album or "" }}</td>
+                        <td>{{ item.year or "" }}</td>
+                        <td>{{ item.track_number or "" }}</td>
+                        <td>{{ item.genre or "" }}</td>
+                        <td>{{ item.audio_format or "" }}</td>
+
+                        <td>
+                            {% if item.incoming_path %}
+                                <code>{{ item.incoming_path }}</code>
+                            {% elif item.downloaded_path %}
+                                <code>{{ item.downloaded_path }}</code>
+                            {% else %}
+                                <span class="jellyfin-pending">Sin incoming</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.final_path %}
+                                <code>{{ item.final_path }}</code>
+                            {% else %}
+                                <span class="jellyfin-pending">No enviado</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.incoming_size_bytes %}
+                                {{ item.incoming_size_bytes }} bytes
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.final_size_bytes %}
+                                {{ item.final_size_bytes }} bytes
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+
+                        <td>{{ item.created_at or "" }}</td>
+                        <td>{{ item.queued_at or "" }}</td>
+                        <td>{{ item.info_fetched_at or "" }}</td>
+                        <td>{{ item.download_started_at or "" }}</td>
+                        <td>{{ item.downloaded_at or "" }}</td>
+                        <td>{{ item.metadata_updated_at or "" }}</td>
+                        <td>{{ item.moved_to_library_at or "" }}</td>
+                        <td>{{ item.jellyfin_refreshed_at or "" }}</td>
+
+                        <td>
+                            {% if item.is_deleted %}
+                                <span class="jellyfin-pending">Sí</span>
+                                <br>
+                                {{ item.deleted_at or "" }}
+                            {% else %}
+                                <span class="jellyfin-ok">No</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="actions-cell">
+                            <button
+                                type="button"
+                                class="btn-mini"
+                                onclick="toggleAdminActions({{ item.id }})"
+                                title="Mostrar u ocultar acciones auditadas de esta descarga"
+                            >
+                                Ver acciones
+                            </button>
+                        </td>
+                    </tr>
+
+                    <tr
+                        id="admin-actions-{{ item.id }}"
+                        class="admin-actions-row"
+                        style="display: none;"
+                    >
+                        <td colspan="27">
+                            <div class="admin-actions-panel">
+                                <strong>Acciones de la descarga #{{ item.id }}</strong>
+
+                                {% if item.actions %}
+                                    <table class="app-table nested-actions-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Usuario</th>
+                                                <th>Acción</th>
+                                                <th>Detalles</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {% for action in item.actions %}
+                                                <tr>
+                                                    <td>{{ action.created_at }}</td>
+
+                                                    <td>
+                                                        {% if action.user %}
+                                                            {{ action.user.username }}
+                                                        {% else %}
+                                                            <span class="jellyfin-pending">Sistema</span>
+                                                        {% endif %}
+                                                    </td>
+
+                                                    <td>{{ action.action }}</td>
+
+                                                    <td>
+                                                        {% if action.details %}
+                                                            <code>{{ action.details }}</code>
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% else %}
+                                    <div class="empty-row">
+                                        No hay acciones registradas para esta descarga.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="27" class="empty-row">
+                            No hay descargas registradas.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+    function toggleAdminActions(downloadId) {
+        const row = document.getElementById(`admin-actions-${downloadId}`);
+
+        if (!row) {
+            return;
+        }
+
+        if (row.style.display === "none") {
+            row.style.display = "table-row";
+        } else {
+            row.style.display = "none";
+        }
+    }
+</script>
+
+{% endblock %}

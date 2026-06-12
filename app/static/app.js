@@ -1,8 +1,427 @@
+function getAudioFormat() {
+    const selector = document.getElementById("audio_format");
+    return selector ? selector.value : "mp3";
+}
+
+function getInputRows() {
+    return Array.from(document.querySelectorAll(".input-url-row"));
+}
+
 function getRow(id) {
     return document.querySelector(`tr[data-id="${id}"]`);
 }
 
-function getRowData(id) {
+function setInputRowFetching(row, fetching) {
+    row.dataset.fetching = fetching ? "1" : "0";
+
+    row.querySelectorAll("button, input[type='checkbox']").forEach((element) => {
+        element.disabled = fetching;
+    });
+
+    const textarea = row.querySelector(".input-url");
+    if (textarea) {
+        textarea.readOnly = fetching;
+    }
+
+    const status = row.querySelector(".input-row-status");
+    if (status) {
+        status.textContent = fetching ? "Obteniendo nombre..." : "";
+    }
+}
+
+function setInputRowNotFound(row) {
+    row.dataset.fetching = "0";
+    row.dataset.notFound = "1";
+
+    row.querySelectorAll("button, input[type='checkbox']").forEach((element) => {
+        element.disabled = false;
+    });
+
+    const textarea = row.querySelector(".input-url");
+    if (textarea) {
+        textarea.readOnly = false;
+    }
+
+    const titleInput = row.querySelector(".original-title-input");
+    if (titleInput) {
+        titleInput.readOnly = false;
+        titleInput.value = "No encontrado";
+    }
+
+    const uploaderInput = row.querySelector(".uploader-input");
+    if (uploaderInput) {
+        uploaderInput.readOnly = false;
+    }
+
+    const status = row.querySelector(".input-row-status");
+    if (status) {
+        status.textContent = "No encontrado. Puedes editar manualmente.";
+    }
+}
+
+function createInputRow(url = "", checked = true) {
+    const tbody = document.getElementById("input-url-body");
+
+    if (!tbody) {
+        return null;
+    }
+
+    const tr = document.createElement("tr");
+    tr.className = "input-url-row";
+    tr.dataset.fetching = "0";
+
+    tr.innerHTML = `
+        <td>
+            <input type="checkbox" class="input-row-check" ${checked ? "checked" : ""} title="Seleccionar esta URL">
+        </td>
+
+        <td>
+            <textarea
+                class="form-control input-url"
+                rows="1"
+                placeholder="https://www.youtube.com/watch?v=..."
+                onpaste="handleUrlPaste(event, this)"
+                onblur="autoFetchNameForInputRow(this)"
+                oninput="markInputRowDirty(this)"
+                title="Pega una URL de YouTube. Si pegas varias líneas, se crearán varias filas."
+            ></textarea>
+            <div class="input-row-status"></div>
+        </td>
+
+        <td>
+            <input class="cell-input original-title-input" readonly title="Nombre original del vídeo">
+        </td>
+
+        <td>
+            <input class="cell-input uploader-input" readonly title="Canal o uploader">
+        </td>
+
+        <td class="actions-cell input-actions-cell">
+            <button type="button" class="btn-mini action-fetch-name" onclick="fetchNameForInputRow(this)" title="Obtener nombre original">
+                Obtener nombres
+            </button>
+
+            <button type="button" class="btn-mini accent action-queue" onclick="queueSingleInputRow(this)" title="Añadir esta URL a la cola">
+                Añadir a cola
+            </button>
+
+            <button type="button" class="btn-mini action-view" onclick="openInputVideo(this)" title="Abrir vídeo original">
+                Ver vídeo
+            </button>
+
+            <button type="button" class="btn-mini danger action-remove" onclick="removeInputRow(this)" title="Eliminar esta fila">
+                Eliminar
+            </button>
+        </td>
+    `;
+
+    tbody.appendChild(tr);
+
+    const textarea = tr.querySelector(".input-url");
+    textarea.value = url;
+
+    if (url) {
+        setTimeout(() => {
+            autoFetchNameForInputRow(textarea);
+        }, 100);
+    }
+
+    return tr;
+}
+
+function addUrlRow() {
+    const row = createInputRow("", true);
+
+    if (row) {
+        const input = row.querySelector(".input-url");
+        if (input) {
+            input.focus();
+        }
+    }
+}
+
+function removeInputRow(button) {
+    const row = button.closest("tr");
+    const tbody = document.getElementById("input-url-body");
+
+    if (!row || !tbody || row.dataset.fetching === "1") {
+        return;
+    }
+
+    if (tbody.children.length === 1) {
+        row.querySelector(".input-url").value = "";
+        row.querySelector(".original-title-input").value = "";
+        row.querySelector(".original-title-input").readOnly = true;
+        row.querySelector(".uploader-input").value = "";
+        row.querySelector(".uploader-input").readOnly = true;
+        row.querySelector(".input-row-status").textContent = "";
+        row.querySelector(".input-row-check").checked = true;
+        row.dataset.notFound = "0";
+        return;
+    }
+
+    row.remove();
+}
+
+function toggleInputRows(source) {
+    document.querySelectorAll(".input-row-check").forEach((checkbox) => {
+        if (!checkbox.disabled) {
+            checkbox.checked = source.checked;
+        }
+    });
+}
+
+function toggleHistoryRows(source) {
+    document.querySelectorAll(".row-check").forEach((checkbox) => {
+        checkbox.checked = source.checked;
+    });
+}
+
+function markInputRowDirty(textarea) {
+    const row = textarea.closest("tr");
+
+    if (!row) {
+        return;
+    }
+
+    row.dataset.notFound = "0";
+
+    const titleInput = row.querySelector(".original-title-input");
+    const uploaderInput = row.querySelector(".uploader-input");
+    const status = row.querySelector(".input-row-status");
+
+    titleInput.value = "";
+    titleInput.readOnly = true;
+    uploaderInput.value = "";
+    uploaderInput.readOnly = true;
+    status.textContent = "";
+}
+
+function normalizePastedUrls(text) {
+    return text
+        .split(/\r?\n/)
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+}
+
+function handleUrlPaste(event, textarea) {
+    const pastedText = (event.clipboardData || window.clipboardData).getData("text");
+
+    if (!pastedText) {
+        return;
+    }
+
+    const urls = normalizePastedUrls(pastedText);
+
+    if (urls.length <= 1) {
+        setTimeout(() => {
+            autoFetchNameForInputRow(textarea);
+        }, 150);
+        return;
+    }
+
+    event.preventDefault();
+    textarea.value = urls[0];
+
+    const row = textarea.closest("tr");
+    if (row) {
+        row.querySelector(".input-row-check").checked = true;
+    }
+
+    for (let index = 1; index < urls.length; index++) {
+        createInputRow(urls[index], true);
+    }
+
+    setTimeout(() => {
+        fetchNamesForInputRows();
+    }, 200);
+}
+
+function getInputRowData(row) {
+    const titleValue = row.querySelector(".original-title-input").value.trim();
+
+    return {
+        url: row.querySelector(".input-url").value.trim(),
+        original_title: titleValue === "No encontrado" ? "" : titleValue,
+        uploader: row.querySelector(".uploader-input").value.trim()
+    };
+}
+
+function getSelectedInputRows() {
+    return getInputRows().filter((row) => {
+        const checkbox = row.querySelector(".input-row-check");
+        const url = row.querySelector(".input-url").value.trim();
+        return checkbox.checked && url.length > 0 && row.dataset.fetching !== "1";
+    });
+}
+
+function getAllInputRowsWithUrl() {
+    return getInputRows().filter((row) => {
+        const url = row.querySelector(".input-url").value.trim();
+        return url.length > 0 && row.dataset.fetching !== "1";
+    });
+}
+
+async function fetchVideoInfoForUrls(urls, timeoutMs = 5000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch("/api/video-info", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ urls }),
+            signal: controller.signal
+        });
+
+        return await response.json();
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function autoFetchNameForInputRow(textarea) {
+    const row = textarea.closest("tr");
+
+    if (!row) {
+        return;
+    }
+
+    const url = row.querySelector(".input-url").value.trim();
+    const currentTitle = row.querySelector(".original-title-input").value.trim();
+
+    if (!url || currentTitle || row.dataset.fetching === "1") {
+        return;
+    }
+
+    await fetchNameForInputRow(row.querySelector(".action-fetch-name"));
+}
+
+async function fetchNameForInputRow(buttonOrRow) {
+    const row = buttonOrRow.closest ? buttonOrRow.closest("tr") : buttonOrRow;
+
+    if (!row || row.dataset.fetching === "1") {
+        return;
+    }
+
+    const url = row.querySelector(".input-url").value.trim();
+
+    if (!url) {
+        alert("Introduce una URL primero.");
+        return;
+    }
+
+    setInputRowFetching(row, true);
+    row.querySelector(".original-title-input").value = "Buscando...";
+    row.querySelector(".uploader-input").value = "";
+
+    try {
+        const result = await fetchVideoInfoForUrls([url], 5000);
+
+        if (!result.ok || !result.results || !result.results.length || !result.results[0].ok) {
+            setInputRowNotFound(row);
+            return;
+        }
+
+        const item = result.results[0];
+        const titleInput = row.querySelector(".original-title-input");
+        const uploaderInput = row.querySelector(".uploader-input");
+
+        titleInput.value = item.original_title || "No encontrado";
+        uploaderInput.value = item.uploader || "";
+        row.querySelector(".input-row-status").textContent = "";
+
+        row.querySelectorAll("button, input[type='checkbox']").forEach((element) => {
+            element.disabled = false;
+        });
+
+        row.querySelector(".input-url").readOnly = false;
+        row.dataset.fetching = "0";
+    } catch (error) {
+        setInputRowNotFound(row);
+    }
+}
+
+async function fetchNamesForInputRows() {
+    const rows = getSelectedInputRows();
+
+    if (!rows.length) {
+        alert("Selecciona al menos una URL.");
+        return;
+    }
+
+    for (const row of rows) {
+        await fetchNameForInputRow(row.querySelector(".action-fetch-name"));
+    }
+}
+
+async function queueRows(rows) {
+    const validRows = rows
+        .map((row) => getInputRowData(row))
+        .filter((row) => row.url.length > 0);
+
+    if (!validRows.length) {
+        alert("No hay URLs válidas o todavía se están obteniendo nombres.");
+        return;
+    }
+
+    const response = await fetch("/api/queue", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            rows: validRows,
+            audio_format: getAudioFormat()
+        })
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+        alert(result.error || "No se pudo añadir a la cola.");
+        return;
+    }
+
+    refreshHistory();
+}
+
+async function queueSingleInputRow(button) {
+    const row = button.closest("tr");
+
+    if (row.dataset.fetching !== "1") {
+        await queueRows([row]);
+    }
+}
+
+async function queueSelectedInputRows() {
+    await queueRows(getSelectedInputRows());
+}
+
+async function queueAllInputRows() {
+    await queueRows(getAllInputRowsWithUrl());
+}
+
+function openInputVideo(button) {
+    const url = button.closest("tr").querySelector(".input-url").value.trim();
+
+    if (!url) {
+        alert("Introduce una URL primero.");
+        return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function openVideoUrl(url) {
+    if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+    }
+}
+
+function getHistoryRowData(id) {
     const row = getRow(id);
 
     return {
@@ -35,18 +454,21 @@ async function postForm(url, data) {
 }
 
 async function saveRow(id) {
-    const result = await postForm(`/api/rows/${id}/update`, getRowData(id));
+    const result = await postForm(`/api/rows/${id}/update`, getHistoryRowData(id));
 
     if (!result.ok) {
-        alert(result.error || "No se pudo guardar la fila");
-        return;
+        alert(result.error || "No se pudo guardar la fila.");
+        return false;
     }
 
     markRowSaved(id);
+    return true;
 }
 
 async function autoMetadata(id) {
-    await saveRow(id);
+    if (!(await saveRow(id))) {
+        return;
+    }
 
     const response = await fetch(`/api/rows/${id}/auto-metadata`, {
         method: "POST"
@@ -55,14 +477,94 @@ async function autoMetadata(id) {
     const result = await response.json();
 
     if (!result.ok) {
-        alert(result.error || "No se pudieron buscar los datos");
+        alert(result.error || "No se pudieron buscar los datos.");
         return;
     }
 
-    fillRow(id, result.item);
+    fillHistoryRow(id, result.item);
+}
+
+async function downloadRow(id) {
+    if (!(await saveRow(id))) {
+        return;
+    }
+
+    const response = await fetch(`/api/rows/${id}/download`, {
+        method: "POST"
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+        alert(result.error || "No se pudo enviar a descarga.");
+        return;
+    }
+
+    refreshHistory();
+}
+
+function selectedHistoryIds() {
+    return Array.from(document.querySelectorAll(".row-check:checked"))
+        .map((checkbox) => Number(checkbox.value));
+}
+
+async function saveSelectedRows() {
+    const ids = selectedHistoryIds();
+
+    if (!ids.length) {
+        alert("Selecciona al menos un registro.");
+        return;
+    }
+
+    for (const id of ids) {
+        await saveRow(id);
+    }
+}
+
+async function autoMetadataSelectedRows() {
+    const ids = selectedHistoryIds();
+
+    if (!ids.length) {
+        alert("Selecciona al menos un registro.");
+        return;
+    }
+
+    for (const id of ids) {
+        await autoMetadata(id);
+    }
+}
+
+async function downloadSelectedRows() {
+    const ids = selectedHistoryIds();
+
+    if (!ids.length) {
+        alert("Selecciona al menos un registro.");
+        return;
+    }
+
+    const response = await fetch("/api/rows/download-selected", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ids })
+    });
+
+    const result = await response.json();
+
+    if (!result.ok) {
+        alert(result.error || "No se pudieron enviar a descarga.");
+        return;
+    }
+
+    refreshHistory();
 }
 
 async function sendJellyfin(id) {
+    if (!(await saveRow(id))) {
+        return;
+    }
+
     const response = await fetch(`/api/jellyfin/send/${id}`, {
         method: "POST"
     });
@@ -70,7 +572,7 @@ async function sendJellyfin(id) {
     const result = await response.json();
 
     if (!result.ok) {
-        alert("No se pudo enviar a Jellyfin. Revisa ajustes.");
+        alert(result.error || "No se pudo enviar a Jellyfin. Revisa ajustes y rutas.");
         return;
     }
 
@@ -78,12 +580,15 @@ async function sendJellyfin(id) {
 }
 
 async function sendSelectedToJellyfin() {
-    const ids = Array.from(document.querySelectorAll(".row-check:checked"))
-        .map((checkbox) => Number(checkbox.value));
+    const ids = selectedHistoryIds();
 
     if (!ids.length) {
         alert("Selecciona al menos un registro.");
         return;
+    }
+
+    for (const id of ids) {
+        await saveRow(id);
     }
 
     const response = await fetch("/api/jellyfin/send-selected", {
@@ -97,40 +602,76 @@ async function sendSelectedToJellyfin() {
     const result = await response.json();
 
     if (!result.ok) {
-        alert("No se pudo enviar a Jellyfin. Revisa ajustes.");
+        alert(result.error || "No se pudo enviar a Jellyfin. Revisa ajustes y rutas.");
         return;
     }
 
     refreshHistory();
 }
 
-async function deleteRow(id) {
-    const confirmed = confirm("¿Eliminar este registro del histórico? No se borrará el fichero descargado.");
+async function deleteSelectedRows() {
+    const ids = selectedHistoryIds();
 
-    if (!confirmed) {
+    if (!ids.length) {
+        alert("Selecciona al menos un registro.");
         return;
     }
 
-    const response = await fetch(`/api/rows/${id}`, {
+    if (!confirm(`¿Eliminar ${ids.length} registros seleccionados?`)) {
+        return;
+    }
+
+    for (const id of ids) {
+        await deleteRow(id, false, true);
+    }
+
+    refreshHistory();
+}
+
+async function deleteRow(id, force = false, silent = false) {
+    let url = `/api/rows/${id}`;
+
+    if (force) {
+        url += "?force=true";
+    }
+
+    const response = await fetch(url, {
         method: "DELETE"
     });
 
     const result = await response.json();
 
+    if (response.status === 409 && result.requires_confirmation) {
+        const confirmed = silent
+            ? true
+            : confirm(result.message || "Aún no se ha pasado a Jellyfin. ¿Seguro que quieres eliminarlo de incoming?");
+
+        if (!confirmed) {
+            return;
+        }
+
+        return deleteRow(id, true, silent);
+    }
+
     if (!result.ok) {
-        alert(result.error || "No se pudo eliminar el registro");
+        if (!silent) {
+            alert(result.error || "No se pudo eliminar el registro.");
+        }
         return;
     }
 
     const row = getRow(id);
-
     if (row) {
         row.remove();
     }
 }
 
-function fillRow(id, item) {
+function fillHistoryRow(id, item) {
     const row = getRow(id);
+
+    if (!row) {
+        return;
+    }
 
     row.querySelector('[name="title"]').value = item.title || "";
     row.querySelector('[name="artist"]').value = item.artist || "";
@@ -147,6 +688,10 @@ function fillRow(id, item) {
 function markRowSaved(id) {
     const row = getRow(id);
 
+    if (!row) {
+        return;
+    }
+
     row.classList.add("saved-flash");
 
     setTimeout(() => {
@@ -154,15 +699,123 @@ function markRowSaved(id) {
     }, 700);
 }
 
-function toggleAllRows(source) {
-    document.querySelectorAll(".row-check").forEach((checkbox) => {
-        checkbox.checked = source.checked;
-    });
-}
-
 function refreshHistory() {
     window.location.reload();
 }
+
+function toggleHistoryTools() {
+    const element = document.getElementById("history-tools");
+
+    if (!element) {
+        return;
+    }
+
+    element.style.display = element.style.display === "none" ? "block" : "none";
+}
+
+const HISTORY_COLUMNS = [
+    "select",
+    "status",
+    "original",
+    "title",
+    "artist",
+    "album",
+    "year",
+    "track",
+    "genre",
+    "format",
+    "jellyfin",
+    "actions"
+];
+
+function initColumnToggles() {
+    const box = document.getElementById("history-column-toggles");
+
+    if (!box) {
+        return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem("dwsongs_visible_columns") || "{}");
+    box.innerHTML = "";
+
+    HISTORY_COLUMNS.forEach((column) => {
+        const visible = saved[column] !== false;
+        const label = document.createElement("label");
+        label.className = "column-toggle-item";
+        label.innerHTML = `<input type="checkbox" ${visible ? "checked" : ""} data-column-toggle="${column}"> ${column}`;
+        box.appendChild(label);
+    });
+
+    box.querySelectorAll("input[data-column-toggle]").forEach((input) => {
+        input.addEventListener("change", applyColumnVisibility);
+    });
+
+    applyColumnVisibility();
+}
+
+function applyColumnVisibility() {
+    const saved = {};
+
+    document.querySelectorAll("input[data-column-toggle]").forEach((input) => {
+        saved[input.dataset.columnToggle] = input.checked;
+    });
+
+    localStorage.setItem("dwsongs_visible_columns", JSON.stringify(saved));
+
+    HISTORY_COLUMNS.forEach((column) => {
+        const visible = saved[column] !== false;
+        document.querySelectorAll(`[data-column="${column}"]`).forEach((cell) => {
+            cell.style.display = visible ? "" : "none";
+        });
+    });
+}
+
+function applyHistoryFilters() {
+    const filters = {};
+
+    document.querySelectorAll(".history-filter").forEach((input) => {
+        if (input.value.trim()) {
+            filters[input.dataset.filterColumn] = input.value.trim().toLowerCase();
+        }
+    });
+
+    document.querySelectorAll("#history-table tbody tr[data-id]").forEach((row) => {
+        let show = true;
+
+        Object.keys(filters).forEach((column) => {
+            const cell = row.querySelector(`[data-column="${column}"]`);
+            const value = ((cell && (cell.dataset.filterValue || cell.textContent)) || "").toLowerCase();
+
+            if (!value.includes(filters[column])) {
+                show = false;
+            }
+        });
+
+        row.style.display = show ? "" : "none";
+    });
+}
+
+function clearHistoryFilters() {
+    document.querySelectorAll(".history-filter").forEach((input) => {
+        input.value = "";
+    });
+
+    applyHistoryFilters();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const firstUrlInput = document.querySelector(".input-url");
+
+    if (firstUrlInput) {
+        firstUrlInput.focus();
+    }
+
+    initColumnToggles();
+
+    document.querySelectorAll(".history-filter").forEach((input) => {
+        input.addEventListener("input", applyHistoryFilters);
+    });
+});
 
 setInterval(() => {
     if (window.location.pathname !== "/") {
@@ -172,8 +825,18 @@ setInterval(() => {
     fetch("/api/history")
         .then((response) => response.json())
         .then((items) => {
+            if (!Array.isArray(items)) {
+                return;
+            }
+
             const hasActive = items.some((item) => {
-                return ["queued", "getting_info", "downloading"].includes(item.status);
+                return [
+                    "pending",
+                    "getting_info",
+                    "queued",
+                    "downloading",
+                    "saving_library"
+                ].includes(item.status);
             });
 
             if (hasActive) {
