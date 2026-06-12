@@ -173,4 +173,36 @@
     }
 </script>
 
+
+<section class="desktop-window settings-window mt-3">
+    <div class="window-title">
+        <div>
+            <strong>Editor de idiomas</strong>
+            <span>Gestiona los textos de la interfaz desde Configuración.</span>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h2>Idiomas de la interfaz</h2>
+
+        <p class="form-help">
+            Desde el editor puedes modificar los textos de los ficheros JSON de <code>app/i18n</code>, crear nuevos idiomas copiando desde uno existente y añadir nuevas claves de traducción.
+        </p>
+
+        <p class="form-help">
+            Esta opción solo está disponible para usuarios administradores.
+        </p>
+    </div>
+
+    <div class="settings-actions">
+        <a
+            class="btn btn-primary"
+            href="/settings/languages"
+            title="Abrir editor de idiomas"
+        >
+            Abrir editor de idiomas
+        </a>
+    </div>
+</section>
+    
 {% endblock %}

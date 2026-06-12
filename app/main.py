@@ -9,6 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 
+from app.language_admin import router as language_admin_router
+
+
 from app.auth import (
     any_user_exists,
     attach_session_cookie,
@@ -42,6 +45,7 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.include_router(language_admin_router)
 
 templates = Jinja2Templates(directory="app/templates")
 
